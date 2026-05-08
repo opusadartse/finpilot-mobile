@@ -1,19 +1,30 @@
-const tintColorLight = '#2f95dc';
-const tintColorDark = '#fff';
+const royalBlue = "#2563EB";
+const emerald = "#16A34A";
+const surface = "#F7F8FA";
+const cardWhite = "#FFFFFF";
+const textPrimary = "#111827";
+const textSecondary = "#4B5563";
+const softBorder = "#E5E7EB";
 
 export default {
   light: {
-    text: '#000',
-    background: '#fff',
-    tint: tintColorLight,
-    tabIconDefault: '#ccc',
-    tabIconSelected: tintColorLight,
+    text: textPrimary,
+    background: surface,
+    tint: royalBlue,
+    tabIconDefault: textSecondary,
+    tabIconSelected: royalBlue,
+    accentPositive: emerald,
+    card: cardWhite,
+    border: softBorder,
   },
   dark: {
-    text: '#fff',
-    background: '#000',
-    tint: tintColorDark,
-    tabIconDefault: '#ccc',
-    tabIconSelected: tintColorDark,
+    text: textPrimary,
+    background: surface,
+    tint: royalBlue,
+    tabIconDefault: textSecondary,
+    tabIconSelected: royalBlue,
+    accentPositive: emerald,
+    card: cardWhite,
+    border: softBorder,
   },
 };
