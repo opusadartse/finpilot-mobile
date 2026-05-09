@@ -17,10 +17,17 @@ import {
   getLoans,
   getLoanPayments,
   getPayments,
+  getRiskProfile,
   getUserBaseScore,
   setUserBaseScore,
 } from "@/lib/db";
-import { projectScenarioScore, type ScoreScenario } from "@/lib/score";
+import {
+  calculateRisk,
+  getRiskBand,
+  getRiskColor,
+  projectScenarioScore,
+  type ScoreScenario,
+} from "@/lib/score";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
@@ -46,6 +53,7 @@ export default function SimulatorScreen() {
   const [cardPayments, setCardPayments] = useState(() => getPayments());
   const [loanPayments, setLoanPayments] = useState(() => getLoanPayments());
   const [baseScore, setBaseScore] = useState<number | null>(() => getUserBaseScore());
+  const [riskProfile, setRiskProfile] = useState(() => getRiskProfile());
 
   const [scenario, setScenario] = useState<ScoreScenario>("open_new_card");
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
@@ -65,6 +73,7 @@ export default function SimulatorScreen() {
       setCardPayments(getPayments());
       setLoanPayments(getLoanPayments());
       setBaseScore(getUserBaseScore());
+      setRiskProfile(getRiskProfile());
     }, [])
   );
 
@@ -75,6 +84,33 @@ export default function SimulatorScreen() {
 
   const adjustmentShift =
     projection.projected.totalAdjustment - projection.baseline.totalAdjustment;
+  const riskModel = useMemo(() => {
+    if (!cards.length) {
+      const risk = calculateRisk(projection.baseline.utilization * 100, 0, 0, 0, riskProfile);
+      return { risk, band: getRiskBand(risk), color: getRiskColor(risk) };
+    }
+    const totals = cards.reduce(
+      (acc, card) => {
+        const ageYears = Math.max(0, (Date.now() - new Date(card.opening_date).getTime()) / (1000 * 60 * 60 * 24 * 365));
+        return {
+          limit: acc.limit + card.credit_limit,
+          aprWeighted: acc.aprWeighted + card.apr * card.credit_limit,
+          ageWeighted: acc.ageWeighted + ageYears * card.credit_limit,
+        };
+      },
+      { limit: 0, aprWeighted: 0, ageWeighted: 0 }
+    );
+    const avgApr = totals.limit > 0 ? totals.aprWeighted / totals.limit : 0;
+    const avgAge = totals.limit > 0 ? totals.ageWeighted / totals.limit : 0;
+    const risk = calculateRisk(
+      projection.baseline.utilization * 100,
+      avgAge,
+      totals.limit,
+      avgApr,
+      riskProfile
+    );
+    return { risk, band: getRiskBand(risk), color: getRiskColor(risk) };
+  }, [cards, projection.baseline.utilization, riskProfile]);
 
   const openScoreModal = () => {
     setScoreDraft(baseScore !== null ? String(baseScore) : "");
@@ -286,6 +322,11 @@ export default function SimulatorScreen() {
                 : "Short-term drop expected"}
           </Text>
           <Text style={[styles.reason, { color: c.tabIconDefault }]}>{projection.reason}</Text>
+          <View style={[styles.riskPill, { borderColor: riskModel.color, backgroundColor: `${riskModel.color}1A` }]}>
+            <Text style={[styles.riskPillText, { color: riskModel.color }]}>
+              Risk Score {riskModel.risk} · {riskModel.band.replace("_", " ").toUpperCase()} · {riskProfile.toUpperCase()}
+            </Text>
+          </View>
         </GlassCard>
       </Animated.View>
 
@@ -382,6 +423,15 @@ const styles = StyleSheet.create({
   deltaHint: { marginTop: 6, fontSize: 13, fontWeight: "600" },
   pill: { marginTop: 2, fontSize: 12, fontWeight: "700" },
   reason: { marginTop: 6, fontSize: 13, lineHeight: 18 },
+  riskPill: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+  },
+  riskPillText: { fontSize: 12, fontWeight: "800" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15,23,42,0.55)",

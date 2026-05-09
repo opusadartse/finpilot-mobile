@@ -31,6 +31,64 @@ export type DynamicScoreOptions = {
   additionalAdjustment?: number;
 };
 
+export type RiskProfile = "conservative" | "balanced" | "aggressive";
+
+export type RiskBand = "low" | "moderate" | "high" | "very_high";
+
+export function calculateRisk(
+  utilization: number,
+  yearsOld: number,
+  creditLimit: number,
+  apr: number,
+  profile: RiskProfile = "balanced"
+) {
+  const safeUtil = Number.isFinite(utilization) ? utilization : 0;
+  const safeYears = Number.isFinite(yearsOld) ? yearsOld : 0;
+  const safeLimit = Number.isFinite(creditLimit) ? creditLimit : 0;
+  const safeApr = Number.isFinite(apr) ? apr : 0;
+
+  const u = Math.max(0, Math.min(100, safeUtil));
+  const y = Math.max(0, safeYears);
+  const l = Math.max(0, safeLimit);
+  const a = Math.max(0, Math.min(100, safeApr));
+
+  let risk = u;
+
+  const presets = {
+    conservative: { newAcc: 1.7, midAcc: 1.3, oldAcc: 0.85, aprDiv: 160, lowLimit: 1.2, highLimit: 0.92 },
+    balanced: { newAcc: 1.5, midAcc: 1.2, oldAcc: 0.8, aprDiv: 200, lowLimit: 1.15, highLimit: 0.9 },
+    aggressive: { newAcc: 1.35, midAcc: 1.1, oldAcc: 0.75, aprDiv: 260, lowLimit: 1.1, highLimit: 0.88 },
+  } as const;
+
+  const p = presets[profile] ?? presets.balanced;
+
+  if (y < 1) risk *= p.newAcc;
+  else if (y < 3) risk *= p.midAcc;
+  else if (y > 5) risk *= p.oldAcc;
+
+  risk *= 1 + a / p.aprDiv;
+
+  if (l < 1000) risk *= p.lowLimit;
+  else if (l > 10000) risk *= p.highLimit;
+
+  return Math.round(risk);
+}
+
+export function getRiskBand(risk: number): RiskBand {
+  if (risk < 25) return "low";
+  if (risk < 50) return "moderate";
+  if (risk < 75) return "high";
+  return "very_high";
+}
+
+export function getRiskColor(risk: number) {
+  const band = getRiskBand(risk);
+  if (band === "low") return "#16A34A";
+  if (band === "moderate") return "#2563EB";
+  if (band === "high") return "#F59E0B";
+  return "#DC2626";
+}
+
 function clampScore(n: number) {
   return Math.max(300, Math.min(850, Math.round(n)));
 }

@@ -10,9 +10,10 @@ import {
   getLoanPayments,
   getPayments,
   getReminders,
+  getRiskProfile,
   getUserBaseScore,
 } from "@/lib/db";
-import { computeDynamicScore } from "@/lib/score";
+import { calculateRisk, computeDynamicScore, getRiskBand, getRiskColor } from "@/lib/score";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 import { useFocusEffect } from "@react-navigation/native";
@@ -25,12 +26,14 @@ export default function DashboardScreen() {
   const [summary, setSummary] = useState(() => dashboardSummary());
   const [baseScore, setBaseScore] = useState(() => getUserBaseScore());
   const [reminders, setReminders] = useState(() => getReminders());
+  const [riskProfile, setRiskProfile] = useState(() => getRiskProfile());
   useFocusEffect(
     useCallback(() => {
       setCards(getCards());
       setSummary(dashboardSummary());
       setBaseScore(getUserBaseScore());
       setReminders(getReminders());
+      setRiskProfile(getRiskProfile());
     }, [])
   );
   const totalDebt = summary.totalDebt;
@@ -53,6 +56,27 @@ export default function DashboardScreen() {
     y: Math.max(300, Math.min(850, trendAnchor - 22 + x * 6)),
   }));
   const trendPalette = ["#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA", "#3B82F6", "#2563EB"];
+  const riskModel = useMemo(() => {
+    if (!cards.length) {
+      const risk = calculateRisk(util * 100, 0, 0, 0, riskProfile);
+      return { risk, band: getRiskBand(risk), color: getRiskColor(risk) };
+    }
+    const totals = cards.reduce(
+      (acc, card) => {
+        const ageYears = Math.max(0, (Date.now() - new Date(card.opening_date).getTime()) / (1000 * 60 * 60 * 24 * 365));
+        return {
+          limit: acc.limit + card.credit_limit,
+          aprWeighted: acc.aprWeighted + card.apr * card.credit_limit,
+          ageWeighted: acc.ageWeighted + ageYears * card.credit_limit,
+        };
+      },
+      { limit: 0, aprWeighted: 0, ageWeighted: 0 }
+    );
+    const avgApr = totals.limit > 0 ? totals.aprWeighted / totals.limit : 0;
+    const avgAge = totals.limit > 0 ? totals.ageWeighted / totals.limit : 0;
+    const risk = calculateRisk(util * 100, avgAge, totals.limit, avgApr, riskProfile);
+    return { risk, band: getRiskBand(risk), color: getRiskColor(risk) };
+  }, [cards, util, riskProfile]);
   const reminderStats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -124,6 +148,9 @@ export default function DashboardScreen() {
               {scoreModel.currentScore ?? "—"}
             </Text>
           </View>
+          <Text style={[styles.riskLine, { color: riskModel.color }]}>
+            Risk {riskModel.risk} · {riskModel.band.replace("_", " ").toUpperCase()} · {riskProfile.toUpperCase()}
+          </Text>
         </GlassCard>
       </Animated.View>
 
@@ -206,6 +233,7 @@ const styles = StyleSheet.create({
   scoreLeft: { flex: 1, paddingRight: 10 },
   scoreCompact: { fontSize: 48, fontWeight: "900" },
   pos: { marginTop: 6, fontWeight: "800", fontSize: 16 },
+  riskLine: { marginTop: 8, fontSize: 13, fontWeight: "800" },
   trendTitle: { fontSize: 24, fontWeight: "800", marginBottom: 12 },
   reminderTitle: { fontSize: 22, fontWeight: "800" },
   reminderLine: { marginTop: 8, fontSize: 15, fontWeight: "700" },

@@ -71,6 +71,9 @@ const db = SQLite.openDatabaseSync("finpilot_mobile.db");
 let initialized = false;
 
 const USER_BASE_CREDIT_SCORE_KEY = "user_base_credit_score";
+const RISK_PROFILE_KEY = "risk_profile";
+const RISK_PROFILES = ["conservative", "balanced", "aggressive"] as const;
+export type RiskProfileSetting = (typeof RISK_PROFILES)[number];
 
 export function initDb() {
   if (initialized) return;
@@ -620,6 +623,30 @@ export function setUserBaseScore(score: number) {
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     USER_BASE_CREDIT_SCORE_KEY,
     String(clamped)
+  );
+}
+
+export function getRiskProfile(): RiskProfileSetting {
+  initDb();
+  const row = db.getFirstSync<{ value: string }>(
+    "SELECT value FROM app_settings WHERE key = ?",
+    RISK_PROFILE_KEY
+  );
+  if (!row?.value) return "balanced";
+  if ((RISK_PROFILES as readonly string[]).includes(row.value)) {
+    return row.value as RiskProfileSetting;
+  }
+  return "balanced";
+}
+
+export function setRiskProfile(profile: RiskProfileSetting) {
+  initDb();
+  const safeProfile = (RISK_PROFILES as readonly string[]).includes(profile) ? profile : "balanced";
+  db.runSync(
+    `INSERT INTO app_settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    RISK_PROFILE_KEY,
+    safeProfile
   );
 }
 
