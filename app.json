@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "splash": {
         "backgroundColor": "#031126"
-      }
+      },
+      "bundleIdentifier": "com.anonymous.finpilot-mobile"
     },
     "android": {
       "adaptiveIcon": {
