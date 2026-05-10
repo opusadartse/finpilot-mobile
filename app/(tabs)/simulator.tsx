@@ -230,6 +230,65 @@ export default function SimulatorScreen() {
         </GlassCard>
       </Animated.View>
 
+      <Animated.View entering={FadeInDown.delay(55)}>
+        <GlassCard style={{ marginTop: 10 }}>
+          <Text style={[styles.label, { color: c.tabIconDefault }]}>Estimated result</Text>
+          {baseScore !== null ? (
+            <Text style={[styles.score, { color: c.text }]}>
+              {projection.baseline.currentScore} → {projection.projected.currentScore}
+            </Text>
+          ) : (
+            <Text style={[styles.scoreMuted, { color: c.tabIconDefault }]}>
+              Set a base score to see FICO-style totals. Scenario adjustment shift:{" "}
+              <Text style={{ fontWeight: "900", color: c.text }}>
+                {adjustmentShift >= 0 ? "+" : ""}
+                {adjustmentShift}
+              </Text>
+            </Text>
+          )}
+          {baseScore !== null ? (
+            <Text
+              style={[
+                styles.delta,
+                { color: projection.diff >= 0 ? c.accentPositive : "#DC2626" },
+              ]}
+            >
+              {projection.diff >= 0 ? "+" : ""}
+              {projection.diff}
+            </Text>
+          ) : (
+            <Text style={[styles.deltaHint, { color: c.tabIconDefault }]}>
+              Points shown after you save your real score (300–850).
+            </Text>
+          )}
+          <Text
+            style={[
+              styles.pill,
+              {
+                color:
+                  baseScore === null
+                    ? c.tabIconDefault
+                    : projection.diff >= 0
+                      ? c.accentPositive
+                      : "#DC2626",
+              },
+            ]}
+          >
+            {baseScore === null
+              ? "Save a base score to quantify point changes"
+              : projection.diff >= 0
+                ? "Positive movement expected"
+                : "Short-term drop expected"}
+          </Text>
+          <Text style={[styles.reason, { color: c.tabIconDefault }]}>{projection.reason}</Text>
+          <View style={[styles.riskPill, { borderColor: riskModel.color, backgroundColor: `${riskModel.color}1A` }]}>
+            <Text style={[styles.riskPillText, { color: riskModel.color }]}>
+              Risk Score {riskModel.risk} · {riskModel.band.replace("_", " ").toUpperCase()} · {riskProfile.toUpperCase()}
+            </Text>
+          </View>
+        </GlassCard>
+      </Animated.View>
+
       <Animated.View entering={FadeInDown.delay(70)}>
         <GlassCard style={{ marginTop: 2 }}>
           <Text style={[styles.label, { color: c.tabIconDefault }]}>Scenario</Text>
@@ -292,65 +351,6 @@ export default function SimulatorScreen() {
               <Text style={[styles.factorSummary, { color: c.tabIconDefault }]}>{row.summary}</Text>
             </Animated.View>
           ))}
-        </GlassCard>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(150)}>
-        <GlassCard style={{ marginTop: 10 }}>
-          <Text style={[styles.label, { color: c.tabIconDefault }]}>Estimated result</Text>
-          {baseScore !== null ? (
-            <Text style={[styles.score, { color: c.text }]}>
-              {projection.baseline.currentScore} → {projection.projected.currentScore}
-            </Text>
-          ) : (
-            <Text style={[styles.scoreMuted, { color: c.tabIconDefault }]}>
-              Set a base score to see FICO-style totals. Scenario adjustment shift:{" "}
-              <Text style={{ fontWeight: "900", color: c.text }}>
-                {adjustmentShift >= 0 ? "+" : ""}
-                {adjustmentShift}
-              </Text>
-            </Text>
-          )}
-          {baseScore !== null ? (
-            <Text
-              style={[
-                styles.delta,
-                { color: projection.diff >= 0 ? c.accentPositive : "#DC2626" },
-              ]}
-            >
-              {projection.diff >= 0 ? "+" : ""}
-              {projection.diff}
-            </Text>
-          ) : (
-            <Text style={[styles.deltaHint, { color: c.tabIconDefault }]}>
-              Points shown after you save your real score (300–850).
-            </Text>
-          )}
-          <Text
-            style={[
-              styles.pill,
-              {
-                color:
-                  baseScore === null
-                    ? c.tabIconDefault
-                    : projection.diff >= 0
-                      ? c.accentPositive
-                      : "#DC2626",
-              },
-            ]}
-          >
-            {baseScore === null
-              ? "Save a base score to quantify point changes"
-              : projection.diff >= 0
-                ? "Positive movement expected"
-                : "Short-term drop expected"}
-          </Text>
-          <Text style={[styles.reason, { color: c.tabIconDefault }]}>{projection.reason}</Text>
-          <View style={[styles.riskPill, { borderColor: riskModel.color, backgroundColor: `${riskModel.color}1A` }]}>
-            <Text style={[styles.riskPillText, { color: riskModel.color }]}>
-              Risk Score {riskModel.risk} · {riskModel.band.replace("_", " ").toUpperCase()} · {riskProfile.toUpperCase()}
-            </Text>
-          </View>
         </GlassCard>
       </Animated.View>
 

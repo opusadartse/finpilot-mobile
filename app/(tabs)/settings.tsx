@@ -1,4 +1,6 @@
 import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
 import { useFocusEffect } from "@react-navigation/native";
@@ -6,6 +8,7 @@ import { useCallback, useState } from "react";
 import { getRiskProfile, setRiskProfile, type RiskProfileSetting } from "@/lib/db";
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const [riskProfile, setRiskProfileState] = useState<RiskProfileSetting>(() => getRiskProfile());
   useFocusEffect(
     useCallback(() => {
@@ -39,6 +42,16 @@ export default function SettingsScreen() {
   return (
     <ScreenWrap>
       <Text style={styles.title}>About This App</Text>
+
+      <Pressable style={styles.linkBtn} onPress={() => router.push("/how-to-use")}>
+        <Text style={styles.linkBtnText}>How To Use This App</Text>
+        <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+      </Pressable>
+
+      <Pressable style={styles.linkBtn} onPress={() => router.push("/legal-disclaimer")}>
+        <Text style={styles.linkBtnText}>Legal & Disclaimer</Text>
+        <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+      </Pressable>
 
       <GlassCard style={styles.riskCard}>
         <Text style={styles.cardTitle}>Risk Profile</Text>
@@ -88,7 +101,24 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 30, fontWeight: "900", color: "#0F172A", textAlign: "center", marginTop: 4, marginBottom: 4 },
+  title: { fontSize: 30, fontWeight: "900", color: "#0F172A", textAlign: "center", marginTop: 4, marginBottom: 12 },
+  linkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  linkBtnText: { fontSize: 16, fontWeight: "800", color: "#111827" },
   riskCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 22,

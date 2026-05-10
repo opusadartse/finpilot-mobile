@@ -1,13 +1,16 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
-import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import "react-native-reanimated";
 import { initDb } from "@/lib/db";
 
 import { useColorScheme } from "@/components/useColorScheme";
 
-void SplashScreen.preventAutoHideAsync();
+/** DB before first paint — avoids any deferral for dashboard reads */
+initDb();
+
+/** No fade-out when native splash hands off to React (instant transition). */
+SplashScreen.setOptions({ fade: false, duration: 0 });
 
 export { ErrorBoundary } from "expo-router";
 
@@ -18,15 +21,12 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  useEffect(() => {
-    initDb();
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
-
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="how-to-use" />
+        <Stack.Screen name="legal-disclaimer" />
       </Stack>
     </ThemeProvider>
   );
