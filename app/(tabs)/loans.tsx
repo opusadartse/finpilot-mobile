@@ -18,13 +18,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
-import Colors from "@/constants/Colors";
-import { useColorScheme } from "@/components/useColorScheme";
 import { addLoan, addLoanPayment, deleteLoan, getCards, getLoanPayments, getLoans, getRemainingMonths, setLoanPurchasesThisMonth, updateLoan } from "@/lib/db";
 
 export default function LoansScreen() {
-  const scheme = useColorScheme() ?? "dark";
-  const c = Colors[scheme];
   const [loans, setLoans] = useState(() => getLoans());
   const [cards, setCards] = useState(() => getCards());
   const [loanPayments, setLoanPayments] = useState(() => getLoanPayments());
@@ -50,7 +46,6 @@ export default function LoansScreen() {
   const [pickerField, setPickerField] = useState<"start" | "end" | "expiration" | null>(null);
   const [pickerMode, setPickerMode] = useState<"create" | "edit">("create");
   const [pickerDate, setPickerDate] = useState(new Date());
-  const [focusedField, setFocusedField] = useState<"name" | "amount" | "target" | "notes" | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editSaved, setEditSaved] = useState(false);
   const [editLoanId, setEditLoanId] = useState<number | null>(null);
@@ -63,20 +58,10 @@ export default function LoansScreen() {
   const [editMonthlyTarget, setEditMonthlyTarget] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [priorityVisible, setPriorityVisible] = useState(false);
-  const glow = useSharedValue(0);
   const datePress = useSharedValue(0);
-  const actionPress = useSharedValue(0);
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(glow.value ? 0.985 : 1) }],
-    opacity: withSpring(glow.value ? 0.94 : 1),
-  }));
   const datePressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(datePress.value ? 0.985 : 1) }],
     opacity: withSpring(datePress.value ? 0.9 : 1),
-  }));
-  const actionPressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(actionPress.value ? 0.985 : 1) }],
-    opacity: withSpring(actionPress.value ? 0.92 : 1),
   }));
 
   const reload = useCallback(() => {
@@ -321,26 +306,18 @@ export default function LoansScreen() {
         <Text style={styles.headerSubtitle}>Track 0% APR offers and payoff goals</Text>
       </View>
 
-      <View style={[styles.segmentWrap, { borderColor: c.border, backgroundColor: "rgba(255,255,255,0.02)" }]}>
+      <View style={styles.segmentWrap}>
         <Pressable
           onPress={() => setLoanView("new")}
-          style={[
-            styles.segmentBtn,
-            loanView === "new" ? styles.segmentBtnActive : undefined,
-            { borderColor: c.border },
-          ]}
+          style={[styles.segmentBtn, loanView === "new" ? styles.segmentBtnActive : undefined]}
         >
-          <Text style={[styles.segmentText, { color: loanView === "new" ? "#FFFFFF" : c.tabIconDefault }]}>New Loan</Text>
+          <Text style={[styles.segmentText, { color: loanView === "new" ? "#FFFFFF" : "#4B5563" }]}>New Loan</Text>
         </Pressable>
         <Pressable
           onPress={() => setLoanView("current")}
-          style={[
-            styles.segmentBtn,
-            loanView === "current" ? styles.segmentBtnActive : undefined,
-            { borderColor: c.border },
-          ]}
+          style={[styles.segmentBtn, loanView === "current" ? styles.segmentBtnActive : undefined]}
         >
-          <Text style={[styles.segmentText, { color: loanView === "current" ? "#FFFFFF" : c.tabIconDefault }]}>
+          <Text style={[styles.segmentText, { color: loanView === "current" ? "#FFFFFF" : "#4B5563" }]}>
             Current Loans
           </Text>
         </Pressable>
@@ -348,163 +325,177 @@ export default function LoansScreen() {
 
       {loanView === "new" ? (
       <Animated.View entering={FadeInDown.delay(70)} key="new-loan-section">
-        <GlassCard>
-          <Text style={[styles.sectionHeader, { color: c.text }]}>Create New Loan / Promotion</Text>
-          <Text style={[styles.sectionLabel, { color: c.tabIconDefault }]}>Add promotion</Text>
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Card Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            onFocus={() => setFocusedField("name")}
-            onBlur={() => setFocusedField(null)}
-            placeholder="Enter credit card name"
-            placeholderTextColor={c.tabIconDefault}
-            returnKeyType="next"
-            style={[styles.input, { color: c.text, borderColor: focusedField === "name" ? c.tint : c.border }]}
-          />
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Amount Borrowed ($)</Text>
-          <TextInput
-            value={amountBorrowed}
-            onChangeText={(v) => setAmountBorrowed(v.replace(/[^0-9.]/g, ""))}
-            keyboardType="decimal-pad"
-            returnKeyType="done"
-            onFocus={() => setFocusedField("amount")}
-            onBlur={() => setFocusedField(null)}
-            placeholder="4000.00"
-            placeholderTextColor={c.tabIconDefault}
-            style={[styles.input, { color: c.text, borderColor: focusedField === "amount" ? c.tint : c.border }]}
-          />
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Promotion Dates</Text>
-          <Animated.View style={[styles.chipRow, datePressStyle]}>
-            <Pressable
-              onPressIn={() => (datePress.value = 1)}
-              onPressOut={() => (datePress.value = 0)}
-              onPress={() => openDatePicker("start", "create")}
-              style={[styles.dateChip, { borderColor: c.border }]}
-            >
-              <Ionicons name="calendar-outline" size={14} color={c.tint} />
-              <Text style={[styles.chipText, { color: c.text }]}>Start {formatDatePretty(startDate)}</Text>
-            </Pressable>
-            <Pressable
-              onPressIn={() => (datePress.value = 1)}
-              onPressOut={() => (datePress.value = 0)}
-              onPress={() => openDatePicker("end", "create")}
-              style={[styles.dateChip, { borderColor: c.border }]}
-            >
-              <Ionicons name="calendar-outline" size={14} color={c.tint} />
-              <Text style={[styles.chipText, { color: c.text }]}>End {formatDatePretty(endDate)}</Text>
-            </Pressable>
-            <Pressable
-              onPressIn={() => (datePress.value = 1)}
-              onPressOut={() => (datePress.value = 0)}
-              onPress={() => openDatePicker("expiration", "create")}
-              style={[styles.dateChip, { borderColor: c.border }]}
-            >
-              <Ionicons name="alarm-outline" size={14} color={c.tint} />
-              <Text style={[styles.chipText, { color: c.text }]}>0% Ends {formatDatePretty(expirationDate)}</Text>
-            </Pressable>
-          </Animated.View>
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Monthly Payment Target ($)</Text>
-          <TextInput
-            value={monthlyTarget}
-            onChangeText={(v) => setMonthlyTarget(v.replace(/[^0-9.]/g, ""))}
-            keyboardType="decimal-pad"
-            returnKeyType="done"
-            onFocus={() => setFocusedField("target")}
-            onBlur={() => setFocusedField(null)}
-            placeholder={`Auto: ${suggestedMonthly.toFixed(2)}`}
-            placeholderTextColor={c.tabIconDefault}
-            style={[styles.input, { color: c.text, borderColor: focusedField === "target" ? c.tint : c.border }]}
-          />
-          <Text style={[styles.fieldLabel, { color: c.text }]}>Notes</Text>
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            onFocus={() => setFocusedField("notes")}
-            onBlur={() => setFocusedField(null)}
-            multiline
-            scrollEnabled
-            textAlignVertical="top"
-            autoCorrect
-            spellCheck
-            blurOnSubmit={false}
-            returnKeyType="default"
-            placeholder="Explain terms, fee notes, transfer source, and reminders..."
-            placeholderTextColor={c.tabIconDefault}
-            style={[styles.notesInput, { color: c.text, borderColor: focusedField === "notes" ? c.tint : c.border }]}
-          />
-          <Text style={[styles.preview, { color: c.tabIconDefault }]}>
+        <GlassCard style={styles.formCard}>
+          <Text style={styles.sectionHeader}>Create New Loan / Promotion</Text>
+          <Text style={styles.sectionLabelMuted}>Add promotion details</Text>
+
+          <View style={[styles.fieldBlock, styles.fieldBlockFirst]}>
+            <Text style={styles.fieldLabel}>Card Name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter credit card name"
+              placeholderTextColor="#9CA3AF"
+              returnKeyType="next"
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Amount Borrowed ($)</Text>
+            <TextInput
+              value={amountBorrowed}
+              onChangeText={(v) => setAmountBorrowed(v.replace(/[^0-9.]/g, ""))}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              placeholder="4000.00"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Promotion Start Date</Text>
+            <Animated.View style={datePressStyle}>
+              <Pressable
+                onPressIn={() => (datePress.value = 1)}
+                onPressOut={() => (datePress.value = 0)}
+                onPress={() => openDatePicker("start", "create")}
+                style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : undefined]}
+              >
+                <Ionicons name="calendar-outline" size={18} color="#374151" />
+                <Text style={styles.dateFieldText}>{formatDatePretty(startDate)}</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Promotion End Date</Text>
+            <Animated.View style={datePressStyle}>
+              <Pressable
+                onPressIn={() => (datePress.value = 1)}
+                onPressOut={() => (datePress.value = 0)}
+                onPress={() => openDatePicker("end", "create")}
+                style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : undefined]}
+              >
+                <Ionicons name="calendar-outline" size={18} color="#374151" />
+                <Text style={styles.dateFieldText}>{formatDatePretty(endDate)}</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>0% APR End Date</Text>
+            <Animated.View style={datePressStyle}>
+              <Pressable
+                onPressIn={() => (datePress.value = 1)}
+                onPressOut={() => (datePress.value = 0)}
+                onPress={() => openDatePicker("expiration", "create")}
+                style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : undefined]}
+              >
+                <Ionicons name="alarm-outline" size={18} color="#374151" />
+                <Text style={styles.dateFieldText}>{formatDatePretty(expirationDate)}</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Monthly Payment Target ($)</Text>
+            <TextInput
+              value={monthlyTarget}
+              onChangeText={(v) => setMonthlyTarget(v.replace(/[^0-9.]/g, ""))}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              placeholder={`Auto: ${suggestedMonthly.toFixed(2)}`}
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Notes</Text>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              scrollEnabled
+              textAlignVertical="top"
+              autoCorrect
+              spellCheck
+              blurOnSubmit={false}
+              returnKeyType="default"
+              placeholder="Explain terms, fee notes, transfer source, and reminders..."
+              placeholderTextColor="#9CA3AF"
+              style={styles.notesInput}
+            />
+          </View>
+
+          <Text style={styles.preview}>
             Months remaining: {monthsPreview} • Recommended monthly payment: ${suggestedMonthly.toFixed(2)}
           </Text>
-          <Animated.View style={[glowStyle, actionPressStyle]}>
-          <Pressable
-            onPressIn={() => {
-              glow.value = 1;
-              actionPress.value = 1;
-            }}
-            onPressOut={() => {
-              glow.value = 0;
-              actionPress.value = 0;
-            }}
-            onPress={() => {
-              if (!name.trim()) {
-                Alert.alert("Missing Name", "Please enter a loan or promotion name.");
-                return;
-              }
-              if (endDate < startDate) {
-                Alert.alert("Invalid Dates", "End Date cannot be before Start Date.");
-                return;
-              }
-              if (expirationDate < startDate || expirationDate > endDate) {
-                Alert.alert("Invalid Expiration", "Expiration must be between Start Date and End Date.");
-                return;
-              }
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              const amount = Number(amountBorrowed) || 0;
-              if (amount <= 0) {
-                Alert.alert("Invalid Amount", "Enter a valid borrowed amount greater than 0.");
-                return;
-              }
-              const months = Math.max(1, getRemainingMonths(expirationDate.toISOString()));
-              const payload = {
-                name: name.trim(),
-                amount_borrowed: amount,
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString(),
-                interest_free_expiration: expirationDate.toISOString(),
-                monthly_payment_target: Number(monthlyTarget) || amount / months,
-                notes: notes.trim(),
-              };
-              if (editingLoanId) {
-                updateLoan(editingLoanId, payload);
-              } else {
-                addLoan(payload);
-              }
-              clearForm();
-              reload();
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }}
-            style={[styles.addBtn, { backgroundColor: c.tint }]}
-            hitSlop={8}
-          >
-            <Text style={styles.addBtnText}>{editingLoanId ? "Save Promotion" : "Add Promotion"}</Text>
-          </Pressable>
-          </Animated.View>
+
+          <View style={styles.createBtnOuter}>
+            <Pressable
+              onPress={() => {
+                if (!name.trim()) {
+                  Alert.alert("Missing Name", "Please enter a loan or promotion name.");
+                  return;
+                }
+                if (endDate < startDate) {
+                  Alert.alert("Invalid Dates", "End Date cannot be before Start Date.");
+                  return;
+                }
+                if (expirationDate < startDate || expirationDate > endDate) {
+                  Alert.alert("Invalid Expiration", "Expiration must be between Start Date and End Date.");
+                  return;
+                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const amount = Number(amountBorrowed) || 0;
+                if (amount <= 0) {
+                  Alert.alert("Invalid Amount", "Enter a valid borrowed amount greater than 0.");
+                  return;
+                }
+                const months = Math.max(1, getRemainingMonths(expirationDate.toISOString()));
+                const payload = {
+                  name: name.trim(),
+                  amount_borrowed: amount,
+                  start_date: startDate.toISOString(),
+                  end_date: endDate.toISOString(),
+                  interest_free_expiration: expirationDate.toISOString(),
+                  monthly_payment_target: Number(monthlyTarget) || amount / months,
+                  notes: notes.trim(),
+                };
+                if (editingLoanId) {
+                  updateLoan(editingLoanId, payload);
+                } else {
+                  addLoan(payload);
+                }
+                clearForm();
+                reload();
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }}
+              style={({ pressed }) => [styles.createOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}
+              hitSlop={8}
+            >
+              <Text style={styles.createOutlineBtnText}>{editingLoanId ? "Save Promotion" : "Create New Loan / Promotion"}</Text>
+            </Pressable>
+          </View>
+
           {editingLoanId ? (
-            <Pressable onPress={clearForm} style={[styles.secondaryBtn, { borderColor: c.border }]}>
-              <Text style={[styles.secondaryText, { color: c.tabIconDefault }]}>Cancel Edit</Text>
+            <Pressable onPress={clearForm} style={({ pressed }) => [styles.secondaryOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+              <Text style={styles.secondaryOutlineBtnText}>Cancel Edit</Text>
             </Pressable>
           ) : null}
         </GlassCard>
       </Animated.View>
       ) : (
       <Animated.View entering={FadeInDown.delay(70)} key="current-loans-section">
-        <GlassCard>
-          <Text style={[styles.sectionHeader, { color: c.text }]}>Current Loans</Text>
-          <Text style={[styles.sectionLabel, { color: c.tabIconDefault }]}>Portfolio Summary</Text>
-          <Text style={[styles.loanMeta, { color: c.text }]}>Active Loans: {totals.activeCount}</Text>
-          <Text style={[styles.loanMeta, { color: c.text }]}>Remaining Balance: ${totals.totalRemaining.toFixed(2)}</Text>
-          <Text style={[styles.loanMeta, { color: c.text }]}>Monthly Target Total: ${totals.totalMonthly.toFixed(2)}</Text>
+        <GlassCard style={styles.formCard}>
+          <Text style={styles.sectionHeader}>Current Loans</Text>
+          <Text style={styles.sectionLabelMuted}>Portfolio summary</Text>
+          <Text style={styles.loanMeta}>Active Loans: {totals.activeCount}</Text>
+          <Text style={styles.loanMeta}>Remaining Balance: ${totals.totalRemaining.toFixed(2)}</Text>
+          <Text style={styles.loanMeta}>Monthly Target Total: ${totals.totalMonthly.toFixed(2)}</Text>
         </GlassCard>
       </Animated.View>
       )}
@@ -515,7 +506,7 @@ export default function LoansScreen() {
         const needed = months > 0 ? loan.current_balance / months : loan.current_balance;
         const purchases = loan.purchases_this_month || 0;
         const totalDue = loan.monthly_payment_target + purchases;
-        const dangerColor = months <= 1 ? "#ff6b7a" : months <= 3 ? "#f6c553" : c.accentPositive;
+        const statusTone = months <= 1 ? "#9A3412" : months <= 3 ? "#A16207" : "#3F4D63";
         return (
           <Animated.View entering={FadeInDown.delay(120 + idx * 40)} key={loan.id}>
             <GlassCard style={[styles.loanCardWrap, selectedLoanId === loan.id ? styles.loanCardSelected : undefined]}>
@@ -536,84 +527,80 @@ export default function LoansScreen() {
                   ])
                 }
               >
-                <Text style={[styles.loanName, { color: c.text }]}>{loan.name}</Text>
-                <Text style={[styles.loanMeta, { color: c.tabIconDefault }]}>Balance ${loan.current_balance.toFixed(2)} of ${loan.amount_borrowed.toFixed(2)}</Text>
-                <Text style={[styles.loanMeta, { color: c.tabIconDefault }]}>Monthly target ${needed.toFixed(2)} • {months} month(s) left</Text>
+                <Text style={styles.loanName}>{loan.name}</Text>
+                <Text style={styles.loanMetaMuted}>
+                  Balance ${loan.current_balance.toFixed(2)} of ${loan.amount_borrowed.toFixed(2)}
+                </Text>
+                <Text style={styles.loanMetaMuted}>
+                  Monthly target ${needed.toFixed(2)} • {months} month(s) left
+                </Text>
                 <Text style={styles.purchasesLabel}>
                   {purchases > 0 ? `Purchases This Month: $${purchases.toFixed(2)}` : "No purchases added this month"}
                 </Text>
                 <Text style={styles.monthLabel}>Current Month: {currentMonthLabel}</Text>
                 <Text style={styles.totalDueLabel}>Total Due This Month: ${totalDue.toFixed(2)}</Text>
-                <Text style={[styles.warning, { color: dangerColor }]}>
+                <Text style={[styles.warning, { color: statusTone }]}>
                   {months <= 1 ? "Interest-free ending now" : months <= 3 ? "Interest-free ending soon" : "Promotion active"}
                 </Text>
-                <View style={[styles.progressTrack, { backgroundColor: "rgba(255,255,255,0.08)" }]}>
-                  <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, progress * 100))}%`, backgroundColor: dangerColor }]} />
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, progress * 100))}%`, backgroundColor: statusTone }]} />
                 </View>
               </Pressable>
-              <View style={styles.actionRow}>
-                <Pressable
-                  onPress={() => handleMakePayment(loan.id)}
-                  style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    styles.makePaymentBtn,
-                    pressed ? styles.btnPressed : undefined,
-                  ]}
-                  hitSlop={6}
-                >
-                  <Text style={styles.cardActionText}>Make Payment</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => openEditModal(loan.id)}
-                  style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    styles.editActionBtn,
-                    pressed ? styles.btnPressed : undefined,
-                  ]}
-                  hitSlop={6}
-                >
-                  <Text style={styles.cardActionText}>Edit</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setPriorityVisible(true)}
-                  style={({ pressed }) => [styles.cardActionBtn, styles.priorityBtn, pressed ? styles.btnPressed : undefined]}
-                  hitSlop={6}
-                >
-                  <Text style={styles.priorityBtnText}>Priority Payment</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    setPurchasesModalLoanId(loan.id);
-                    setPurchasesInput(String(loan.purchases_this_month || 0));
-                  }}
-                  style={({ pressed }) => [styles.cardActionBtn, styles.purchasesBtn, pressed ? styles.btnPressed : undefined]}
-                  hitSlop={6}
-                >
-                  <Text style={styles.priorityBtnText}>Purchases This Month</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() =>
-                    Alert.alert("Delete Promotion", `Delete ${loan.name}?`, [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Delete",
-                        style: "destructive",
-                        onPress: () => {
-                          deleteLoan(loan.id);
-                          reload();
+              <View style={styles.cardActionPanel}>
+                <View style={styles.cardActionRow}>
+                  <Pressable
+                    onPress={() => handleMakePayment(loan.id)}
+                    style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.cardActionText}>Make Payment</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => openEditModal(loan.id)}
+                    style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.cardActionText}>Edit</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      Alert.alert("Delete Promotion", `Delete ${loan.name}?`, [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Delete",
+                          style: "destructive",
+                          onPress: () => {
+                            deleteLoan(loan.id);
+                            reload();
+                          },
                         },
-                      },
-                    ])
-                  }
-                  style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    styles.deleteActionBtn,
-                    pressed ? styles.btnPressed : undefined,
-                  ]}
-                  hitSlop={6}
-                >
-                  <Text style={styles.cardActionText}>Delete</Text>
-                </Pressable>
+                      ])
+                    }
+                    style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.cardActionText}>Delete</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.cardActionRowSecond}>
+                  <Pressable
+                    onPress={() => setPriorityVisible(true)}
+                    style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.cardActionText}>Priority Payment</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setPurchasesModalLoanId(loan.id);
+                      setPurchasesInput(String(loan.purchases_this_month || 0));
+                    }}
+                    style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.cardActionText}>Purchases This Month</Text>
+                  </Pressable>
+                </View>
               </View>
               <View style={styles.loanDivider} />
             </GlassCard>
@@ -623,30 +610,36 @@ export default function LoansScreen() {
 
       {loanView === "current" ? (
       <Animated.View entering={FadeInDown.delay(220)}>
-        <GlassCard style={{ marginTop: 10 }}>
-          <Text style={[styles.sectionLabel, { color: c.tabIconDefault }]}>Payment tracking</Text>
-          <Text style={[styles.loanMeta, { color: c.text }]}>Selected: {selectedLoan?.name ?? "None"}</Text>
+        <GlassCard style={styles.trackingCard}>
+          <Text style={styles.sectionHeaderSmall}>Payment tracking</Text>
+          <Text style={styles.loanMetaCenter}>Selected: {selectedLoan?.name ?? "None"}</Text>
           {paymentSuccessBanner ? <Text style={styles.selectionBanner}>{paymentSuccessBanner}</Text> : null}
-          <TextInput value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="decimal-pad" placeholder="$ payment amount" placeholderTextColor={c.tabIconDefault} style={[styles.input, { color: c.text, borderColor: c.border }]} />
-          <Animated.View style={actionPressStyle}>
-          <Pressable
-            onPressIn={() => (actionPress.value = 1)}
-            onPressOut={() => (actionPress.value = 0)}
-            onPress={() => {
-              const amount = Number(paymentAmount);
-              if (!selectedLoanId || !Number.isFinite(amount) || amount <= 0) return;
-              Haptics.selectionAsync();
-              addLoanPayment(selectedLoanId, amount, new Date().toISOString());
-              reload();
-            }}
-            style={[styles.addBtn, { backgroundColor: c.accentPositive }]}
-            hitSlop={8}
-          >
-            <Text style={styles.addBtnText}>Apply Loan Payment</Text>
-          </Pressable>
-          </Animated.View>
+          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Amount</Text>
+          <TextInput
+            value={paymentAmount}
+            onChangeText={setPaymentAmount}
+            keyboardType="decimal-pad"
+            placeholder="Payment amount"
+            placeholderTextColor="#9CA3AF"
+            style={styles.input}
+          />
+          <View style={styles.applyPaymentWrap}>
+            <Pressable
+              onPress={() => {
+                const amount = Number(paymentAmount);
+                if (!selectedLoanId || !Number.isFinite(amount) || amount <= 0) return;
+                Haptics.selectionAsync();
+                addLoanPayment(selectedLoanId, amount, new Date().toISOString());
+                reload();
+              }}
+              style={({ pressed }) => [styles.applyLoanPaymentBtn, pressed ? styles.outlineBtnPressed : undefined]}
+              hitSlop={8}
+            >
+              <Text style={styles.applyLoanPaymentBtnText}>Apply Loan Payment</Text>
+            </Pressable>
+          </View>
           {loanPayments.slice(0, 8).map((p) => (
-            <Text key={p.id} style={[styles.historyRow, { color: c.tabIconDefault }]}>
+            <Text key={p.id} style={styles.historyRow}>
               {new Date(p.paid_at).toLocaleDateString()} • {p.loan_name} • ${p.amount.toFixed(2)} • left ${p.balance_after.toFixed(2)}
             </Text>
           ))}
@@ -655,8 +648,8 @@ export default function LoansScreen() {
       ) : null}
       <Modal visible={!!pickerField} transparent animationType="slide" onRequestClose={() => setPickerField(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: "#FFFFFF", borderColor: "#D1D5DB" }]}>
-            <Text style={[styles.sectionLabel, { color: "#4B5563" }]}>
+          <View style={styles.modalCardSolid}>
+            <Text style={styles.modalPickerTitle}>
               {pickerField === "start" ? "Pick Start Date" : pickerField === "end" ? "Pick End Date" : "Pick Expiration Date"}
             </Text>
             <View style={styles.pickerShell}>
@@ -667,19 +660,19 @@ export default function LoansScreen() {
               locale="en-US"
               textColor="#111827"
               themeVariant="light"
-              accentColor="#2F80FF"
+              accentColor="#3F4D63"
               onChange={(_, selected) => {
                 if (!selected) return;
                 setPickerDate(selected);
               }}
             />
             </View>
-            <View style={styles.pickerActions}>
-              <Pressable onPress={() => setPickerField(null)} style={[styles.pickerBtn, { borderColor: "#D1D5DB" }]}>
-                <Text style={[styles.secondaryText, { color: "#4B5563" }]}>Cancel</Text>
+            <View style={styles.modalBtnRow}>
+              <Pressable onPress={() => setPickerField(null)} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={applyPickedDate} style={[styles.pickerBtn, styles.pickerApply]}>
-                <Text style={styles.addBtnText}>Apply Date</Text>
+              <Pressable onPress={applyPickedDate} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+                <Text style={styles.modalOutlineBtnText}>Apply Date</Text>
               </Pressable>
             </View>
           </View>
@@ -687,48 +680,59 @@ export default function LoansScreen() {
       </Modal>
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: "#FFFFFF", borderColor: "#D1D5DB" }]}>
-            <Text style={[styles.sectionHeader, { color: "#111827" }]}>Edit Loan</Text>
+          <View style={styles.modalCardSolid}>
+            <Text style={styles.modalSectionTitle}>Edit Loan</Text>
+            <Text style={styles.fieldLabel}>Card name</Text>
             <TextInput
               value={editName}
               onChangeText={setEditName}
               placeholder="Loan name"
               placeholderTextColor="#9CA3AF"
-              style={[styles.input, { borderColor: "#D1D5DB", color: "#111827" }]}
+              style={styles.input}
             />
+            <Text style={styles.fieldLabel}>Current balance ($)</Text>
             <TextInput
               value={editCurrentBalance}
               onChangeText={(v) => setEditCurrentBalance(v.replace(/[^0-9.]/g, ""))}
               keyboardType="decimal-pad"
-              placeholder="Current Balance"
+              placeholder="Current balance"
               placeholderTextColor="#9CA3AF"
-              style={[styles.input, { borderColor: "#D1D5DB", color: "#111827" }]}
+              style={styles.input}
             />
+            <Text style={styles.fieldLabel}>Amount borrowed ($)</Text>
             <TextInput
               value={editAmountBorrowed}
               onChangeText={(v) => setEditAmountBorrowed(v.replace(/[^0-9.]/g, ""))}
               keyboardType="decimal-pad"
-              placeholder="Total Amount"
+              placeholder="Total amount"
               placeholderTextColor="#9CA3AF"
-              style={[styles.input, { borderColor: "#D1D5DB", color: "#111827" }]}
+              style={styles.input}
             />
+            <Text style={styles.fieldLabel}>Monthly payment target ($)</Text>
             <TextInput
               value={editMonthlyTarget}
               onChangeText={(v) => setEditMonthlyTarget(v.replace(/[^0-9.]/g, ""))}
               keyboardType="decimal-pad"
-              placeholder="Monthly Target"
+              placeholder="Monthly target"
               placeholderTextColor="#9CA3AF"
-              style={[styles.input, { borderColor: "#D1D5DB", color: "#111827" }]}
+              style={styles.input}
             />
-            <Pressable onPress={() => openDatePicker("start", "edit")} style={[styles.dateChip, { borderColor: "#D1D5DB" }]}>
-              <Text style={[styles.chipText, { color: "#111827" }]}>Start {formatDatePretty(editStartDate)}</Text>
+            <Text style={styles.fieldLabel}>Promotion start date</Text>
+            <Pressable onPress={() => openDatePicker("start", "edit")} style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : undefined]}>
+              <Ionicons name="calendar-outline" size={18} color="#374151" />
+              <Text style={styles.dateFieldText}>{formatDatePretty(editStartDate)}</Text>
             </Pressable>
-            <Pressable onPress={() => openDatePicker("end", "edit")} style={[styles.dateChip, { borderColor: "#D1D5DB" }]}>
-              <Text style={[styles.chipText, { color: "#111827" }]}>End {formatDatePretty(editEndDate)}</Text>
+            <Text style={styles.fieldLabel}>Promotion end date</Text>
+            <Pressable onPress={() => openDatePicker("end", "edit")} style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : undefined]}>
+              <Ionicons name="calendar-outline" size={18} color="#374151" />
+              <Text style={styles.dateFieldText}>{formatDatePretty(editEndDate)}</Text>
             </Pressable>
-            <Pressable onPress={() => openDatePicker("expiration", "edit")} style={[styles.dateChip, { borderColor: "#D1D5DB" }]}>
-              <Text style={[styles.chipText, { color: "#111827" }]}>0% Ends {formatDatePretty(editExpirationDate)}</Text>
+            <Text style={styles.fieldLabel}>0% APR end date</Text>
+            <Pressable onPress={() => openDatePicker("expiration", "edit")} style={({ pressed }) => [styles.dateField, pressed ? styles.dateFieldPressed : undefined]}>
+              <Ionicons name="alarm-outline" size={18} color="#374151" />
+              <Text style={styles.dateFieldText}>{formatDatePretty(editExpirationDate)}</Text>
             </Pressable>
+            <Text style={styles.fieldLabel}>Notes</Text>
             <TextInput
               value={editNotes}
               onChangeText={setEditNotes}
@@ -737,19 +741,19 @@ export default function LoansScreen() {
               textAlignVertical="top"
               placeholder="Notes"
               placeholderTextColor="#9CA3AF"
-              style={[styles.notesInput, { borderColor: "#D1D5DB", color: "#111827" }]}
+              style={styles.notesInput}
             />
             {editSaved ? (
               <View style={styles.savedBanner}>
                 <Text style={styles.savedBannerText}>Saved successfully</Text>
               </View>
             ) : null}
-            <View style={styles.pickerActions}>
-              <Pressable onPress={() => setEditModalVisible(false)} style={[styles.pickerBtn, { borderColor: "#D1D5DB" }]}>
-                <Text style={[styles.secondaryText, { color: "#4B5563" }]}>Cancel</Text>
+            <View style={styles.modalBtnRow}>
+              <Pressable onPress={() => setEditModalVisible(false)} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={saveEditModal} style={[styles.pickerBtn, styles.pickerApply]}>
-                <Text style={styles.addBtnText}>Save Changes</Text>
+              <Pressable onPress={saveEditModal} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+                <Text style={styles.modalOutlineBtnText}>Save Changes</Text>
               </Pressable>
             </View>
           </View>
@@ -757,9 +761,9 @@ export default function LoansScreen() {
       </Modal>
       <Modal visible={priorityVisible} transparent animationType="slide" onRequestClose={() => setPriorityVisible(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: "#FFFFFF", borderColor: "#D1D5DB" }]}>
-            <Text style={[styles.sectionHeader, { color: "#111827" }]}>Priority Payment Plan</Text>
-            <Text style={[styles.sectionLabel, { color: "#4B5563" }]}>Smart order to avoid interest</Text>
+          <View style={styles.modalCardSolid}>
+            <Text style={styles.modalSectionTitle}>Priority Payment Plan</Text>
+            <Text style={styles.sectionLabelMuted}>Smart order to avoid interest</Text>
 
             <View style={styles.priorityCard}>
               <Text style={styles.priorityBadge}>PRIORITY #1</Text>
@@ -782,14 +786,17 @@ export default function LoansScreen() {
                 <Text style={styles.priorityMeta}>Expires in {promo.monthsLeft} month(s)</Text>
                 <Text style={styles.priorityMeta}>${promo.current_balance.toFixed(2)} remaining</Text>
                 <Text style={styles.priorityMeta}>Recommended payment: ${promo.safePayment.toFixed(2)}/month</Text>
-                <Text style={[styles.priorityStatus, { color: promo.risk ? "#C62828" : "#16A34A" }]}>
+                <Text style={[styles.priorityStatus, { color: promo.risk ? "#7F1D1D" : "#3F4D63" }]}>
                   {promo.risk ? "Risk of deferred interest" : "On track"}
                 </Text>
               </View>
             ))}
 
-            <Pressable onPress={() => setPriorityVisible(false)} style={[styles.pickerBtn, styles.pickerApply, { marginTop: 8 }]}>
-              <Text style={styles.addBtnText}>Close</Text>
+            <Pressable
+              onPress={() => setPriorityVisible(false)}
+              style={({ pressed }) => [styles.modalOutlineBtnFull, pressed ? styles.outlineBtnPressed : undefined, { marginTop: 8 }]}
+            >
+              <Text style={styles.modalOutlineBtnText}>Close</Text>
             </Pressable>
           </View>
         </View>
@@ -810,6 +817,7 @@ export default function LoansScreen() {
                   ).toFixed(2)
                 : "0.00"}
             </Text>
+            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Payment amount</Text>
             <TextInput
               value={makePaymentAmount}
               onChangeText={(v) => setMakePaymentAmount(v.replace(/[^0-9.]/g, ""))}
@@ -818,6 +826,7 @@ export default function LoansScreen() {
               placeholderTextColor="#9CA3AF"
               style={styles.input}
             />
+            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Notes (optional)</Text>
             <TextInput
               value={makePaymentNotes}
               onChangeText={setMakePaymentNotes}
@@ -825,9 +834,9 @@ export default function LoansScreen() {
               placeholderTextColor="#9CA3AF"
               style={styles.input}
             />
-            <View style={styles.modalActionRow}>
-              <Pressable onPress={() => setMakePaymentVisible(false)} style={styles.modalCancel}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
+            <View style={styles.modalBtnRow}>
+              <Pressable onPress={() => setMakePaymentVisible(false)} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -843,9 +852,9 @@ export default function LoansScreen() {
                   setPaymentSuccessBanner("Payment Applied Successfully");
                   setTimeout(() => setPaymentSuccessBanner(""), 1400);
                 }}
-                style={styles.modalSave}
+                style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}
               >
-                <Text style={styles.actionText}>Apply Payment</Text>
+                <Text style={styles.modalOutlineBtnText}>Apply Payment</Text>
               </Pressable>
             </View>
           </View>
@@ -856,6 +865,7 @@ export default function LoansScreen() {
           <View style={styles.centerModalCard}>
             <Text style={styles.modalTitle}>Monthly Purchases</Text>
             <Text style={styles.modalLine}>Loan: {loans.find((l) => l.id === purchasesModalLoanId)?.name ?? "-"}</Text>
+            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Purchases this month ($)</Text>
             <TextInput
               value={purchasesInput}
               onChangeText={(v) => setPurchasesInput(v.replace(/[^0-9.]/g, ""))}
@@ -864,9 +874,9 @@ export default function LoansScreen() {
               placeholderTextColor="#9CA3AF"
               style={styles.input}
             />
-            <View style={styles.modalActionRow}>
-              <Pressable onPress={() => setPurchasesModalLoanId(null)} style={styles.modalCancel}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
+            <View style={styles.modalBtnRow}>
+              <Pressable onPress={() => setPurchasesModalLoanId(null)} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -875,9 +885,9 @@ export default function LoansScreen() {
                   setPurchasesModalLoanId(null);
                   reload();
                 }}
-                style={styles.modalSave}
+                style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}
               >
-                <Text style={styles.actionText}>Save Purchases</Text>
+                <Text style={styles.modalOutlineBtnText}>Save Purchases</Text>
               </Pressable>
             </View>
           </View>
@@ -891,248 +901,373 @@ export default function LoansScreen() {
 
 const styles = StyleSheet.create({
   headerBanner: {
-    borderRadius: 18,
-    padding: 18,
-    backgroundColor: "#2563EB",
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    marginBottom: 6,
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    backgroundColor: "#3F4D63",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    marginBottom: 10,
+    alignItems: "center",
   },
-  headerTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "800" },
-  headerSubtitle: { marginTop: 4, color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: "600" },
-  sectionLabel: { fontSize: 14, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700" },
-  sectionHeader: { fontSize: 24, fontWeight: "800", marginBottom: 6 },
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 29,
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: 0.4,
+  },
+  headerSubtitle: {
+    marginTop: 8,
+    color: "rgba(255,255,255,0.86)",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  sectionHeader: {
+    fontSize: 26,
+    fontWeight: "900",
+    marginBottom: 6,
+    textAlign: "center",
+    color: "#111827",
+    letterSpacing: 0.2,
+  },
+  sectionHeaderSmall: {
+    fontSize: 20,
+    fontWeight: "900",
+    marginBottom: 8,
+    textAlign: "center",
+    color: "#111827",
+  },
+  sectionLabelMuted: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#64748B",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 14,
+  },
+  formCard: { marginBottom: 4, paddingVertical: 4 },
+  fieldBlock: { marginTop: 18 },
+  fieldBlockFirst: { marginTop: 4 },
+  fieldLabel: {
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: 0.2,
+  },
+  fieldLabelSpaced: { marginTop: 14 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
+    fontSize: 16,
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+    minHeight: 52,
+  },
+  notesInput: {
+    marginTop: 0,
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 16,
+    minHeight: 140,
+    maxHeight: 220,
+    backgroundColor: "#FFFFFF",
+    color: "#111827",
+  },
+  dateField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
+    minHeight: 52,
+    backgroundColor: "#FFFFFF",
+    marginBottom: 4,
+  },
+  dateFieldPressed: { backgroundColor: "#F9FAFB" },
+  dateFieldText: { flex: 1, fontSize: 16, fontWeight: "700", color: "#111827" },
+  preview: {
+    marginTop: 16,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  createBtnOuter: {
+    marginTop: 22,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 14,
+    padding: 6,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  createOutlineBtn: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#111827",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 15,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+  },
+  createOutlineBtnText: { color: "#111827", fontSize: 15, fontWeight: "800", textAlign: "center" },
+  secondaryOutlineBtn: {
+    marginTop: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#111827",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 14,
+    alignItems: "center",
+    minHeight: 48,
+  },
+  secondaryOutlineBtnText: { fontSize: 14.5, fontWeight: "800", color: "#111827" },
+  outlineBtnPressed: { backgroundColor: "#F9FAFB", opacity: 0.92 },
   segmentWrap: {
     flexDirection: "row",
     borderWidth: 1,
+    borderColor: "#E5E7EB",
     borderRadius: 14,
     padding: 4,
-    marginBottom: 6,
+    marginBottom: 8,
     gap: 6,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
   segmentBtn: {
     flex: 1,
     borderWidth: 1,
+    borderColor: "#E5E7EB",
     borderRadius: 10,
     alignItems: "center",
-    paddingVertical: 11,
-    minHeight: 46,
+    justifyContent: "center",
+    paddingVertical: 10,
+    minHeight: 44,
+    backgroundColor: "#FFFFFF",
   },
   segmentBtnActive: {
-    backgroundColor: "rgba(47,128,255,0.65)",
-    shadowColor: "#2F80FF",
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    backgroundColor: "#273444",
+    borderColor: "#273444",
   },
   segmentText: { fontSize: 15, fontWeight: "800" },
-  fieldLabel: { marginTop: 12, fontSize: 16, fontWeight: "700" },
-  input: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 17,
-    backgroundColor: "#FFFFFF",
-    color: "#111827",
+  loanName: { fontSize: 21, fontWeight: "800", color: "#111827", textAlign: "center" },
+  loanMeta: { marginTop: 8, fontSize: 15, fontWeight: "600", lineHeight: 22, color: "#111827", textAlign: "center" },
+  loanMetaMuted: {
+    marginTop: 6,
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 22,
+    color: "#64748B",
+    textAlign: "center",
   },
-  notesInput: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 17,
-    minHeight: 128,
-    maxHeight: 210,
-    backgroundColor: "#FFFFFF",
+  loanMetaCenter: { marginTop: 6, fontSize: 14, fontWeight: "600", color: "#64748B", textAlign: "center" },
+  warning: { marginTop: 10, fontSize: 14, fontWeight: "800", textAlign: "center" },
+  progressTrack: {
+    marginTop: 10,
+    height: 12,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "#E5E7EB",
   },
-  chipRow: { marginTop: 10, gap: 10 },
-  dateChip: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 50,
-    backgroundColor: "#EFF6FF",
-  },
-  chipText: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  addBtn: {
-    marginTop: 14,
-    borderRadius: 14,
-    alignItems: "center",
-    paddingVertical: 13,
-    backgroundColor: "#2F80FF",
-    shadowColor: "#2F80FF",
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  addBtnText: { color: "white", fontSize: 16, fontWeight: "800" },
-  secondaryBtn: { marginTop: 10, borderWidth: 1, borderRadius: 12, alignItems: "center", paddingVertical: 12, minHeight: 48 },
-  secondaryText: { fontSize: 15, fontWeight: "700" },
-  preview: { marginTop: 12, fontSize: 14, fontWeight: "700" },
-  loanName: { fontSize: 21, fontWeight: "800", color: "#111827" },
-  loanMeta: { marginTop: 6, fontSize: 15, fontWeight: "600", lineHeight: 22, color: "#4B5563" },
-  warning: { marginTop: 9, fontSize: 14, fontWeight: "800" },
-  progressTrack: { marginTop: 10, height: 12, borderRadius: 999, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 999 },
   loanCardWrap: {
     marginTop: 14,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     shadowColor: "#111827",
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
+    shadowOffset: { width: 0, height: 4 },
   },
   loanCardSelected: {
-    borderColor: "#60A5FA",
-    shadowColor: "#60A5FA",
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    borderColor: "#CBD5E1",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
-  actionRow: { marginTop: 12, flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  cardActionBtn: {
-    flexBasis: "48%",
-    flexGrow: 1,
+  cardActionPanel: {
+    marginTop: 18,
+    marginBottom: 6,
     borderWidth: 1,
-    borderRadius: 12,
+    borderColor: "#E5E7EB",
+    borderRadius: 14,
+    padding: 6,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    gap: 8,
+  },
+  cardActionRow: { flexDirection: "row", gap: 8, alignItems: "stretch" },
+  cardActionRowSecond: { flexDirection: "row", gap: 8 },
+  cardActionBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 12,
-    minHeight: 48,
-    borderColor: "transparent",
-    shadowColor: "#111827",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    paddingHorizontal: 8,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#111827",
   },
-  cardActionText: { fontSize: 14, fontWeight: "800", color: "#0F172A", textAlign: "center", width: "100%" },
-  makePaymentBtn: { backgroundColor: "#60A5FA" },
-  editActionBtn: { backgroundColor: "#93C5FD" },
-  priorityBtn: {
-    borderColor: "#F59E0B",
-    backgroundColor: "#F59E0B",
-    shadowColor: "#F59E0B",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+  cardActionBtnPressed: { opacity: 0.88, backgroundColor: "#F9FAFB" },
+  cardActionText: { fontSize: 14.5, fontWeight: "800", color: "#111827", textAlign: "center" },
+  loanDivider: { marginTop: 10, height: 1, backgroundColor: "#E5E7EB" },
+  trackingCard: { marginTop: 12, paddingBottom: 8 },
+  applyPaymentWrap: { marginTop: 14 },
+  applyLoanPaymentBtn: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#111827",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 50,
   },
-  priorityBtnText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
-  purchasesBtn: {
-    borderColor: "#8B5CF6",
-    backgroundColor: "#8B5CF6",
-    borderRadius: 14,
-  },
-  deleteActionBtn: { backgroundColor: "#FCA5A5" },
-  btnPressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
-  loanDivider: {
-    marginTop: 12,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  historyRow: { marginTop: 10, fontSize: 14, lineHeight: 21, color: "#4B5563" },
-  purchasesLabel: { marginTop: 6, fontSize: 14, fontWeight: "800", color: "#8B5CF6" },
-  monthLabel: { marginTop: 2, fontSize: 12, fontWeight: "700", color: "#6B7280" },
-  totalDueLabel: { marginTop: 3, fontSize: 15, fontWeight: "900", color: "#DC2626" },
+  applyLoanPaymentBtnText: { fontSize: 15, fontWeight: "800", color: "#111827" },
+  historyRow: { marginTop: 10, fontSize: 14, lineHeight: 21, color: "#64748B", fontWeight: "600" },
+  purchasesLabel: { marginTop: 6, fontSize: 14, fontWeight: "800", color: "#64748B", textAlign: "center" },
+  monthLabel: { marginTop: 2, fontSize: 12, fontWeight: "700", color: "#64748B", textAlign: "center" },
+  totalDueLabel: { marginTop: 3, fontSize: 15, fontWeight: "900", color: "#334155", textAlign: "center" },
   selectionBanner: {
-    marginTop: 8,
-    marginBottom: 2,
-    alignSelf: "flex-start",
-    backgroundColor: "#DBEAFE",
-    color: "#1D4ED8",
+    marginTop: 10,
+    marginBottom: 6,
+    alignSelf: "center",
+    backgroundColor: "#F1F5F9",
+    color: "#334155",
     fontSize: 12,
     fontWeight: "800",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 999,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   centerModalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(17,24,39,0.28)",
+    backgroundColor: "rgba(17,24,39,0.35)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 22,
   },
   centerModalCard: {
     width: "100%",
     maxWidth: 430,
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     shadowColor: "#111827",
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  modalTitle: { fontSize: 22, fontWeight: "800", marginBottom: 8, color: "#111827" },
-  modalLine: { fontSize: 14, color: "#4B5563", marginBottom: 6, fontWeight: "600" },
-  modalActionRow: { marginTop: 14, flexDirection: "row", gap: 10 },
-  modalCancel: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: "#D1D5DB", alignItems: "center", paddingVertical: 10 },
-  modalCancelText: { color: "#4B5563", fontWeight: "700", fontSize: 14 },
-  modalSave: { flex: 1, borderRadius: 10, backgroundColor: "#60A5FA", alignItems: "center", paddingVertical: 10 },
-  actionText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  modalTitle: { fontSize: 22, fontWeight: "900", marginBottom: 10, color: "#111827", textAlign: "center" },
+  modalLine: { fontSize: 14, color: "#64748B", marginBottom: 8, fontWeight: "600", textAlign: "center" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(17,24,39,0.35)",
     justifyContent: "flex-end",
     padding: 14,
   },
-  modalCard: {
+  modalCardSolid: {
     borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
+    borderColor: "#E5E7EB",
+    borderRadius: 20,
+    padding: 18,
+    backgroundColor: "#FFFFFF",
+    maxHeight: "92%",
+  },
+  modalSectionTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#111827",
+    marginBottom: 14,
+    textAlign: "center",
+  },
+  modalPickerTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#64748B",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
   pickerShell: {
-    marginTop: 10,
-    borderRadius: 14,
+    marginTop: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(37,99,235,0.38)",
-    backgroundColor: "#F8FAFC",
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-    transform: [{ scale: 1.03 }],
+    borderColor: "#111827",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 8,
+    alignItems: "center",
   },
-  pickerActions: { marginTop: 12, flexDirection: "row", gap: 10 },
-  pickerBtn: { flex: 1, borderWidth: 1, borderRadius: 12, alignItems: "center", paddingVertical: 12, minHeight: 50 },
-  pickerApply: {
-    backgroundColor: "#2F80FF",
-    borderColor: "#2F80FF",
-    shadowColor: "#2F80FF",
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 7,
-  },
-  savedBanner: {
-    marginTop: 10,
-    backgroundColor: "rgba(46,204,113,0.22)",
+  modalBtnRow: { marginTop: 16, flexDirection: "row", gap: 10 },
+  modalOutlineBtn: {
+    flex: 1,
     borderWidth: 1,
-    borderColor: "rgba(46,204,113,0.8)",
+    borderColor: "#111827",
     borderRadius: 10,
-    paddingVertical: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    minHeight: 48,
+    backgroundColor: "#FFFFFF",
+  },
+  modalOutlineBtnFull: {
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    minHeight: 48,
+    backgroundColor: "#FFFFFF",
+  },
+  modalOutlineBtnText: { color: "#111827", fontWeight: "800", fontSize: 15 },
+  savedBanner: {
+    marginTop: 12,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: "center",
   },
   savedBannerText: {
-    color: "#065F46",
+    color: "#334155",
     fontSize: 13,
     fontWeight: "800",
   },
@@ -1142,11 +1277,11 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     borderRadius: 12,
     padding: 12,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#FAFAFA",
   },
   priorityBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#2563EB",
+    backgroundColor: "#3F4D63",
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "800",
@@ -1156,7 +1291,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   priorityTitle: { marginTop: 8, fontSize: 16, fontWeight: "800", color: "#111827" },
-  priorityMeta: { marginTop: 3, fontSize: 13, color: "#4B5563", fontWeight: "600" },
+  priorityMeta: { marginTop: 3, fontSize: 13, color: "#64748B", fontWeight: "600" },
   priorityStatus: { marginTop: 6, fontSize: 13, fontWeight: "800" },
 });
 

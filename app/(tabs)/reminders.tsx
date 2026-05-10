@@ -9,6 +9,8 @@ import { ScreenWrap } from "@/components/ScreenWrap";
 import {
   addReminder,
   deleteReminder,
+  getCards,
+  getLoans,
   getReminderPaymentHistory,
   getReminders,
   markReminderPaid,
@@ -47,16 +49,66 @@ function getSmartAlert(reminder: ReminderRow, daysRemaining: number) {
 }
 
 function getStatusColor(status: ReminderStatus) {
-  if (status === "paid") return "#16A34A";
+  if (status === "paid") return "#15803D";
   if (status === "overdue") return "#DC2626";
-  if (status === "dueSoon") return "#F59E0B";
-  return "#2563EB";
+  if (status === "dueSoon") return "#D97706";
+  return "#3F4D63";
+}
+
+/** Deterministic last-4 style digits for UI when no PAN is stored */
+function pseudoLastFour(seed: number) {
+  const n = Math.abs((seed * 7919) % 10000);
+  return n.toString().padStart(4, "0");
+}
+
+function displayCardName(reminder: ReminderRow) {
+  const t = reminder.title.trim();
+  if (t.endsWith(" Payment")) return t.slice(0, -" Payment".length);
+  if (t.endsWith(" Promotion Payment")) return t.slice(0, -" Promotion Payment".length);
+  return t;
+}
+
+function enrichReminder(
+  reminder: ReminderRow,
+  cards: ReturnType<typeof getCards>,
+  loans: ReturnType<typeof getLoans>
+): {
+  displayName: string;
+  lastFour: string;
+  minPayment: number | null;
+} {
+  let displayName = displayCardName(reminder);
+  let lastFour = "----";
+  let minPayment: number | null = null;
+
+  if (reminder.source_type === "card" && reminder.source_id != null) {
+    const card = cards.find((c) => c.id === reminder.source_id);
+    if (card) {
+      displayName = card.name;
+      minPayment = card.min_payment;
+      lastFour = pseudoLastFour(card.id + card.name.length);
+    }
+  } else if ((reminder.source_type === "loan" || reminder.source_type === "promotion") && reminder.source_id != null) {
+    const loan = loans.find((l) => l.id === reminder.source_id);
+    if (loan) {
+      displayName = loan.name;
+      minPayment = loan.monthly_payment_target;
+      lastFour = pseudoLastFour(loan.id + 7000);
+    }
+  }
+
+  return { displayName, lastFour, minPayment };
 }
 
 export default function RemindersScreen() {
   const [reminders, setReminders] = useState<ReminderRow[]>(() => getReminders());
-  const [history, setHistory] = useState<(ReminderPaymentHistoryRow & { reminder_title: string })[]>(() => getReminderPaymentHistory());
+  const [cards, setCards] = useState(() => getCards());
+  const [loans, setLoans] = useState(() => getLoans());
+  const [history, setHistory] = useState<(ReminderPaymentHistoryRow & { reminder_title: string })[]>(() =>
+    getReminderPaymentHistory()
+  );
   const [viewAll, setViewAll] = useState(false);
+  const [historyVisible, setHistoryVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [editReminderId, setEditReminderId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
@@ -70,6 +122,8 @@ export default function RemindersScreen() {
 
   const reload = useCallback(() => {
     setReminders(getReminders());
+    setCards(getCards());
+    setLoans(getLoans());
     setHistory(getReminderPaymentHistory());
   }, []);
 
@@ -138,19 +192,20 @@ export default function RemindersScreen() {
 
   return (
     <ScreenWrap>
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Payment Reminders</Text>
-          <Text style={styles.subtitle}>Credit cards, loans, and promotion due dates</Text>
-        </View>
-        <Pressable onPress={() => setViewAll((v) => !v)} style={styles.viewAllBtn}>
-          <Text style={styles.viewAllText}>{viewAll ? "View Less" : "View All"}</Text>
+      <GlassCard style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>Payment Reminders</Text>
+        <Text style={styles.headerSubtitle}>Stay on top of your payments</Text>
+      </GlassCard>
+
+      <View style={styles.toolbarRow}>
+        <Pressable onPress={() => setViewAll((v) => !v)} style={styles.outlinePill}>
+          <Text style={styles.outlinePillText}>{viewAll ? "View Less" : "View All"}</Text>
         </Pressable>
       </View>
 
-      <Pressable onPress={openAddModal} style={styles.addBtn}>
-        <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-        <Text style={styles.addBtnText}>Add Reminder</Text>
+      <Pressable onPress={openAddModal} style={styles.primaryAddBtn}>
+        <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+        <Text style={styles.primaryAddBtnText}>Add Reminder</Text>
       </Pressable>
 
       {visibleReminders.map((reminder, index) => {
@@ -158,34 +213,55 @@ export default function RemindersScreen() {
         const color = getStatusColor(status);
         const daysRemaining = getDaysRemaining(reminder.due_date);
         const alertText = getSmartAlert(reminder, daysRemaining);
+        const { displayName, lastFour, minPayment } = enrichReminder(reminder, cards, loans);
+        const dueLabel = new Date(reminder.due_date).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+
         return (
-          <Animated.View key={reminder.id} entering={FadeInDown.delay(50 + index * 35)}>
-            <GlassCard style={[styles.card, reminder.is_paid === 1 ? styles.paidCard : undefined]}>
-              <View style={styles.cardTop}>
-                <View style={styles.titleWrap}>
-                  <Text style={styles.cardTitle}>{reminder.title}</Text>
-                  <View style={[styles.statusPill, { backgroundColor: `${color}1A`, borderColor: color }]}>
-                    <Text style={[styles.statusPillText, { color }]}>{alertText}</Text>
-                  </View>
+          <Animated.View key={reminder.id} entering={FadeInDown.delay(40 + index * 40)} style={styles.cardWrap}>
+            <View style={[styles.reminderCard, reminder.is_paid === 1 ? styles.reminderCardPaid : undefined]}>
+              <View style={styles.reminderCardHeader}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="card-outline" size={22} color="#111827" />
                 </View>
-                <Ionicons name={reminder.is_paid === 1 ? "checkmark-circle" : "time-outline"} size={22} color={color} />
+                <View style={styles.reminderHeaderText}>
+                  <Text style={styles.reminderName}>{displayName}</Text>
+                  <Text style={styles.reminderLastFour}>•••• {lastFour}</Text>
+                </View>
               </View>
 
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Amount Due</Text>
-                <Text style={styles.metricValue}>${reminder.amount_due.toFixed(2)}</Text>
-              </View>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Due Date</Text>
-                <Text style={styles.metricValue}>{new Date(reminder.due_date).toLocaleDateString()}</Text>
-              </View>
-              <View style={styles.metricRow}>
-                <Text style={styles.metricLabel}>Days Remaining</Text>
-                <Text style={[styles.metricValue, { color }]}>
-                  {reminder.is_paid === 1 ? "Paid" : daysRemaining < 0 ? `${Math.abs(daysRemaining)} days overdue` : `${daysRemaining} days`}
+              <View style={styles.reminderBody}>
+                <View style={styles.amountBlock}>
+                  <Text style={styles.amountLabel}>Amount Due</Text>
+                  <Text style={styles.amountDue}>${reminder.amount_due.toFixed(2)}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.metaGrid}>
+                  <View style={styles.metaCell}>
+                    <Text style={styles.metaLabel}>Minimum</Text>
+                    <Text style={styles.metaValue}>
+                      {minPayment != null ? `$${minPayment.toFixed(2)}` : "—"}
+                    </Text>
+                  </View>
+                  <View style={styles.metaCell}>
+                    <Text style={styles.metaLabel}>Due date</Text>
+                    <Text style={styles.metaValue}>{dueLabel}</Text>
+                  </View>
+                </View>
+                <Text
+                  style={[
+                    styles.dueLine,
+                    { color: reminder.is_paid === 1 ? "#15803D" : color },
+                  ]}
+                >
+                  {reminder.is_paid === 1 ? "Paid" : alertText}
                 </Text>
               </View>
-              {reminder.notes ? <Text style={styles.notes}>Notes: {reminder.notes}</Text> : null}
+
+              {reminder.notes ? <Text style={styles.notesLine}>{reminder.notes}</Text> : null}
 
               <View style={styles.actions}>
                 <Pressable
@@ -193,47 +269,71 @@ export default function RemindersScreen() {
                     setSourceReminderId(reminder.id);
                     setSourceInput("Bank account");
                   }}
-                  style={[styles.actionBtn, styles.paidBtn, reminder.is_paid === 1 ? styles.disabledBtn : undefined]}
+                  style={[styles.actionOutline, reminder.is_paid === 1 && styles.actionDisabled]}
                   disabled={reminder.is_paid === 1}
                 >
-                  <Text style={styles.actionBtnText}>{reminder.is_paid === 1 ? "Paid" : "Mark as Paid"}</Text>
+                  <Text style={styles.actionOutlineText}>{reminder.is_paid === 1 ? "Paid" : "Mark as Paid"}</Text>
                 </Pressable>
-                <Pressable onPress={() => openEditModal(reminder)} style={[styles.actionBtn, styles.editBtn]}>
-                  <Text style={styles.actionBtnText}>Edit</Text>
+                <Pressable onPress={() => openEditModal(reminder)} style={styles.actionOutline}>
+                  <Text style={styles.actionOutlineText}>Edit</Text>
                 </Pressable>
                 <Pressable
                   onPress={() =>
                     Alert.alert("Delete Reminder", "Delete this reminder?", [
                       { text: "Cancel", style: "cancel" },
-                      { text: "Delete", style: "destructive", onPress: () => { deleteReminder(reminder.id); reload(); } },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => {
+                          deleteReminder(reminder.id);
+                          reload();
+                        },
+                      },
                     ])
                   }
-                  style={[styles.actionBtn, styles.deleteBtn]}
+                  style={styles.actionOutline}
                 >
-                  <Text style={styles.actionBtnText}>Delete</Text>
+                  <Text style={styles.actionOutlineText}>Delete</Text>
                 </Pressable>
               </View>
-            </GlassCard>
+            </View>
           </Animated.View>
         );
       })}
 
-      <GlassCard style={styles.historyCard}>
-        <Text style={styles.historyTitle}>Payment History</Text>
-        {history.length === 0 ? <Text style={styles.emptyText}>No paid reminders yet.</Text> : null}
-        {history.slice(0, 7).map((item) => (
-          <Text key={item.id} style={styles.historyLine}>
-            {new Date(item.paid_at).toLocaleDateString()} - {item.reminder_title} - ${item.amount.toFixed(2)} - {item.payment_source}
-          </Text>
-        ))}
-      </GlassCard>
+      <Pressable
+        onPress={() => setHistoryVisible((v) => !v)}
+        style={styles.viewHistoryBtn}
+        accessibilityRole="button"
+      >
+        <Text style={styles.viewHistoryBtnText}>View Payment History</Text>
+        <Ionicons name={historyVisible ? "chevron-up" : "chevron-down"} size={18} color="#111827" />
+      </Pressable>
+
+      {historyVisible ? (
+        <GlassCard style={styles.historySection}>
+          <Text style={styles.historySectionTitle}>Payment History</Text>
+          {history.length === 0 ? (
+            <Text style={styles.historyEmpty}>No paid reminders yet.</Text>
+          ) : (
+            history.map((item) => (
+              <View key={item.id} style={styles.historyRow}>
+                <Text style={styles.historyDate}>{new Date(item.paid_at).toLocaleDateString()}</Text>
+                <Text style={styles.historyDetail} numberOfLines={2}>
+                  {item.reminder_title} · ${item.amount.toFixed(2)} · {item.payment_source}
+                </Text>
+              </View>
+            ))
+          )}
+        </GlassCard>
+      ) : null}
 
       <Modal visible={formVisible} transparent animationType="slide" onRequestClose={() => setFormVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{editReminderId ? "Edit Reminder" : "Add Reminder"}</Text>
             <Text style={styles.fieldLabel}>Card or loan name</Text>
-            <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Amex Platinum" placeholderTextColor="#9CA3AF" />
+            <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Amex Platinum" placeholderTextColor="#94A3B8" />
             <Text style={styles.fieldLabel}>Payment amount</Text>
             <TextInput
               value={amount}
@@ -241,11 +341,11 @@ export default function RemindersScreen() {
               keyboardType="decimal-pad"
               style={styles.input}
               placeholder="$250.00"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#94A3B8"
             />
             <Text style={styles.fieldLabel}>Due date</Text>
             <Pressable style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <Ionicons name="calendar-outline" size={16} color="#2563EB" />
+              <Ionicons name="calendar-outline" size={18} color="#374151" />
               <Text style={styles.dateBtnText}>{dueDate.toLocaleDateString()}</Text>
             </Pressable>
             {showDatePicker ? (
@@ -267,18 +367,24 @@ export default function RemindersScreen() {
               textAlignVertical="top"
               style={styles.notesInput}
               placeholder="Optional details"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#94A3B8"
             />
             <View style={styles.switchRow}>
               <Text style={styles.switchLabel}>Repeat monthly</Text>
-              <Switch value={repeatMonthly} onValueChange={setRepeatMonthly} trackColor={{ false: "#CBD5E1", true: "#93C5FD" }} />
+              <Switch value={repeatMonthly} onValueChange={setRepeatMonthly} trackColor={{ false: "#E2E8F0", true: "#CBD5E1" }} />
             </View>
             <View style={styles.modalActions}>
-              <Pressable onPress={() => { setFormVisible(false); setEditReminderId(null); }} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>Cancel</Text>
+              <Pressable
+                onPress={() => {
+                  setFormVisible(false);
+                  setEditReminderId(null);
+                }}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={saveReminder} style={styles.saveBtn}>
-                <Text style={styles.saveText}>Save</Text>
+              <Pressable onPress={saveReminder} style={styles.modalSaveBtn}>
+                <Text style={styles.modalSaveText}>Save</Text>
               </Pressable>
             </View>
           </View>
@@ -290,10 +396,10 @@ export default function RemindersScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Payment Source</Text>
             <Text style={styles.fieldLabel}>Where was this paid from?</Text>
-            <TextInput value={sourceInput} onChangeText={setSourceInput} style={styles.input} placeholder="Bank account" placeholderTextColor="#9CA3AF" />
+            <TextInput value={sourceInput} onChangeText={setSourceInput} style={styles.input} placeholder="Bank account" placeholderTextColor="#94A3B8" />
             <View style={styles.modalActions}>
-              <Pressable onPress={() => setSourceReminderId(null)} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>Cancel</Text>
+              <Pressable onPress={() => setSourceReminderId(null)} style={styles.modalCancelBtn}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -302,9 +408,9 @@ export default function RemindersScreen() {
                   setSourceReminderId(null);
                   reload();
                 }}
-                style={styles.saveBtn}
+                style={styles.modalSaveBtn}
               >
-                <Text style={styles.saveText}>Confirm Paid</Text>
+                <Text style={styles.modalSaveText}>Confirm Paid</Text>
               </Pressable>
             </View>
           </View>
@@ -315,123 +421,358 @@ export default function RemindersScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
-  subtitle: { marginTop: 4, fontSize: 13, color: "#475569", fontWeight: "600" },
-  viewAllBtn: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(37,99,235,0.28)",
-    backgroundColor: "rgba(191,219,254,0.42)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  headerBanner: {
+    backgroundColor: "#3F4D63",
+    borderColor: "#3F4D63",
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    alignItems: "center",
   },
-  viewAllText: { fontSize: 12, fontWeight: "800", color: "#1D4ED8" },
-  addBtn: {
-    marginTop: 10,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textAlign: "center",
+    letterSpacing: 0.3,
+  },
+  headerSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.88)",
+    textAlign: "center",
+  },
+  toolbarRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 4,
+  },
+  outlinePill: {
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  outlinePillText: { fontSize: 13, fontWeight: "700", color: "#111827" },
+  primaryAddBtn: {
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#2563EB",
-    borderRadius: 14,
-    paddingVertical: 12,
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 7 },
+    backgroundColor: "#3F4D63",
+    borderRadius: 18,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#3F4D63",
   },
-  addBtnText: { color: "#FFFFFF", fontWeight: "800", fontSize: 15 },
-  card: {
-    marginTop: 10,
-    borderColor: "rgba(37,99,235,0.15)",
-    backgroundColor: "rgba(255,255,255,0.88)",
-    shadowColor: "#60A5FA",
-    shadowOpacity: 0.14,
+  primaryAddBtnText: { color: "#FFFFFF", fontWeight: "800", fontSize: 15 },
+  cardWrap: {
+    marginTop: 18,
   },
-  paidCard: { opacity: 0.65 },
-  cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  titleWrap: { gap: 7, flex: 1, paddingRight: 8 },
-  cardTitle: { fontSize: 17, fontWeight: "800", color: "#111827" },
-  statusPill: { alignSelf: "flex-start", borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  statusPillText: { fontSize: 12, fontWeight: "800" },
-  metricRow: { marginTop: 8, flexDirection: "row", justifyContent: "space-between" },
-  metricLabel: { color: "#475569", fontSize: 13, fontWeight: "700" },
-  metricValue: { color: "#0F172A", fontSize: 14, fontWeight: "800" },
-  notes: { marginTop: 8, color: "#475569", fontSize: 12, fontWeight: "600" },
-  actions: { marginTop: 12, flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  actionBtn: {
-    flexBasis: "31%",
-    flexGrow: 1,
+  reminderCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    padding: 18,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  reminderCardPaid: {
+    opacity: 0.72,
+  },
+  reminderCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     alignItems: "center",
+    justifyContent: "center",
   },
-  paidBtn: { backgroundColor: "#16A34A" },
-  editBtn: { backgroundColor: "#60A5FA" },
-  deleteBtn: { backgroundColor: "#F87171" },
-  actionBtnText: { color: "#FFFFFF", fontWeight: "800", fontSize: 12 },
-  disabledBtn: { backgroundColor: "#4ADE80" },
-  historyCard: { marginTop: 10 },
-  historyTitle: { fontSize: 18, fontWeight: "800", color: "#111827" },
-  emptyText: { marginTop: 8, color: "#64748B", fontWeight: "600" },
-  historyLine: { marginTop: 8, color: "#334155", fontSize: 13, fontWeight: "600" },
+  reminderHeaderText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  reminderName: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  reminderLastFour: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+    letterSpacing: 0.5,
+  },
+  reminderBody: {
+    marginTop: 16,
+  },
+  amountBlock: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  amountLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  amountDue: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#ECECEC",
+    marginVertical: 14,
+  },
+  metaGrid: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  metaCell: {
+    flex: 1,
+  },
+  metaLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+    marginBottom: 4,
+  },
+  metaValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  dueLine: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  notesLine: {
+    marginTop: 12,
+    fontSize: 13,
+    color: "#64748B",
+    fontWeight: "500",
+    lineHeight: 18,
+  },
+  actions: {
+    marginTop: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  actionOutline: {
+    flexGrow: 1,
+    flexBasis: "30%",
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 11,
+    alignItems: "center",
+    minHeight: 44,
+  },
+  actionOutlineText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  actionDisabled: {
+    opacity: 0.55,
+  },
+  viewHistoryBtn: {
+    marginTop: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#111827",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  viewHistoryBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  historySection: {
+    marginTop: 14,
+    borderColor: "#DADADA",
+  },
+  historySectionTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  historyEmpty: {
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  historyRow: {
+    marginTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E2E8F0",
+  },
+  historyDate: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  historyDetail: {
+    marginTop: 4,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    lineHeight: 20,
+  },
   modalBackdrop: {
     flex: 1,
     justifyContent: "center",
-    backgroundColor: "rgba(15,23,42,0.42)",
-    padding: 18,
+    backgroundColor: "rgba(15,23,42,0.45)",
+    padding: 20,
   },
   modalCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DBEAFE",
-    padding: 16,
+    borderColor: "#DADADA",
+    padding: 18,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  modalTitle: { fontSize: 22, fontWeight: "800", color: "#0F172A", marginBottom: 6 },
-  fieldLabel: { marginTop: 10, color: "#1E293B", fontWeight: "700", fontSize: 14 },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#111827",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  fieldLabel: {
+    marginTop: 12,
+    color: "#64748B",
+    fontWeight: "700",
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   input: {
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    borderColor: "#DADADA",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     color: "#111827",
     backgroundColor: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
   },
   notesInput: {
-    marginTop: 6,
+    marginTop: 8,
     minHeight: 88,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: "#DADADA",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     color: "#111827",
     backgroundColor: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 16,
   },
   dateBtn: {
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: "#BFDBFE",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    borderColor: "#DADADA",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "#EFF6FF",
+    gap: 10,
+    backgroundColor: "#FFFFFF",
   },
-  dateBtnText: { color: "#0F172A", fontSize: 14, fontWeight: "700" },
-  switchRow: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  switchLabel: { color: "#1E293B", fontSize: 14, fontWeight: "700" },
-  modalActions: { marginTop: 14, flexDirection: "row", gap: 10 },
-  cancelBtn: { flex: 1, borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 11, alignItems: "center", paddingVertical: 10 },
-  cancelText: { color: "#475569", fontWeight: "700" },
-  saveBtn: { flex: 1, backgroundColor: "#2563EB", borderRadius: 11, alignItems: "center", paddingVertical: 10 },
-  saveText: { color: "#FFFFFF", fontWeight: "800" },
+  dateBtnText: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  switchRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  switchLabel: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalActions: {
+    marginTop: 18,
+    flexDirection: "row",
+    gap: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    borderRadius: 14,
+    alignItems: "center",
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  modalCancelText: {
+    color: "#374151",
+    fontWeight: "800",
+    fontSize: 15,
+  },
+  modalSaveBtn: {
+    flex: 1,
+    borderRadius: 14,
+    alignItems: "center",
+    paddingVertical: 12,
+    backgroundColor: "#3F4D63",
+    borderWidth: 1,
+    borderColor: "#3F4D63",
+  },
+  modalSaveText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 15,
+  },
 });

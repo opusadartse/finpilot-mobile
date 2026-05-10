@@ -9,13 +9,13 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "resizeMode": "cover",
-      "backgroundColor": "#031126"
+      "resizeMode": "contain",
+      "backgroundColor": "#F3F5F8"
     },
     "ios": {
       "supportsTablet": true,
       "splash": {
-        "backgroundColor": "#031126"
+        "backgroundColor": "#F3F5F8"
       },
       "bundleIdentifier": "com.anonymous.finpilot-mobile"
     },

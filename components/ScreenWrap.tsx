@@ -25,6 +25,6 @@ export function ScreenWrap({ children }: PropsWithChildren) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: 16, gap: 12, paddingBottom: 34 },
+  content: { padding: 20, gap: 16, paddingBottom: 40 },
 });
 

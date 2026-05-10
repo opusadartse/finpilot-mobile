@@ -55,7 +55,7 @@ export default function DashboardScreen() {
     x,
     y: Math.max(300, Math.min(850, trendAnchor - 22 + x * 6)),
   }));
-  const trendPalette = ["#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA", "#3B82F6", "#2563EB"];
+  const trendPalette = ["#E2E8F0", "#CBD5E1", "#B6C2D1", "#9AAABD", "#73859A", "#4A5C72"];
   const riskModel = useMemo(() => {
     if (!cards.length) {
       const risk = calculateRisk(util * 100, 0, 0, 0, riskProfile);
@@ -97,10 +97,10 @@ export default function DashboardScreen() {
 
   return (
     <ScreenWrap>
-      <View style={styles.headerWrap}>
-        <Text style={[styles.title, { color: c.text }]}>Credit Card Loans</Text>
-        <Text style={[styles.sub, { color: c.tabIconDefault }]}>Created by Sam Faz Corporation 2026</Text>
-      </View>
+      <GlassCard style={styles.headerBanner}>
+        <Text style={styles.title}>CREDIT CARD</Text>
+        <Text style={styles.sub}>Track balance, utilization and APR</Text>
+      </GlassCard>
 
       <View style={styles.row}>
       <Animated.View entering={FadeInDown.delay(80)} style={styles.stat}>
@@ -115,7 +115,7 @@ export default function DashboardScreen() {
       <Animated.View entering={FadeInDown.delay(140)} style={styles.stat}>
         <GlassCard style={styles.statCard}>
           <Text style={[styles.k, { color: c.tabIconDefault }]}>Utilization</Text>
-          <Text style={[styles.v, { color: "#2563EB" }]}>{Math.round(util * 100)}%</Text>
+          <Text style={[styles.v, { color: "#1F2A37" }]}>{Math.round(util * 100)}%</Text>
           <Text style={[styles.note, { color: c.tabIconDefault }]}>Cards {summary.cards.length} • Loans {summary.loans.length}</Text>
         </GlassCard>
       </Animated.View>
@@ -215,15 +215,15 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerWrap: { alignItems: "center", marginBottom: 4, marginTop: 2 },
-  title: { fontSize: 34, fontWeight: "900", letterSpacing: 0.2, textAlign: "center" },
-  sub: { fontSize: 14, marginTop: 6, marginBottom: 4, textAlign: "center", fontWeight: "600" },
+  headerBanner: { alignItems: "center", marginBottom: 4, marginTop: 2, backgroundColor: "#3F4D63", borderColor: "#3F4D63" },
+  title: { fontSize: 34, fontWeight: "900", letterSpacing: 0.2, textAlign: "center", color: "#FFFFFF" },
+  sub: { fontSize: 14, marginTop: 6, marginBottom: 2, textAlign: "center", fontWeight: "600", color: "rgba(255,255,255,0.86)" },
   row: { flexDirection: "row", gap: 12 },
   stat: { flex: 1 },
   statCard: { paddingVertical: 20 },
   scoreCard: { paddingVertical: 22 },
   trendCard: { paddingVertical: 20 },
-  alertCard: { paddingVertical: 18, backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
+  alertCard: { paddingVertical: 18, backgroundColor: "#F8FAFC", borderColor: "#E2E8F0" },
   reminderCard: { paddingVertical: 18 },
   reminderCardUrgent: { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
   k: { fontSize: 14, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.75 },
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   trendTitle: { fontSize: 24, fontWeight: "800", marginBottom: 12 },
   reminderTitle: { fontSize: 22, fontWeight: "800" },
   reminderLine: { marginTop: 8, fontSize: 15, fontWeight: "700" },
-  alertTitle: { fontSize: 24, fontWeight: "900", color: "#B45309" },
+  alertTitle: { fontSize: 24, fontWeight: "900", color: "#111827" },
   alert: { marginTop: 8, fontSize: 16, lineHeight: 23, fontWeight: "600" },
   loanRow: { marginTop: 8, fontSize: 14, fontWeight: "700" },
   linkBtn: {
@@ -245,14 +245,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
-    backgroundColor: "#2563EB",
-    shadowColor: "#2563EB",
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
   },
-  linkText: { fontSize: 16, fontWeight: "800", color: "#FFFFFF" },
+  linkText: { fontSize: 16, fontWeight: "800", color: "#111827" },
   sparkWrap: {
     height: 182,
     flexDirection: "row",

@@ -11,30 +11,31 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="cards"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: c.tint,
         tabBarInactiveTintColor: c.tabIconDefault,
         tabBarStyle: {
-          backgroundColor: c.card,
+          backgroundColor: "#F8FAFC",
           borderTopColor: c.border,
           borderTopWidth: 1,
-          height: 76,
-          paddingTop: 8,
-          paddingBottom: 10,
-          paddingHorizontal: 8,
-          marginHorizontal: 12,
+          height: 78,
+          paddingTop: 9,
+          paddingBottom: 11,
+          paddingHorizontal: 10,
+          marginHorizontal: 14,
           marginBottom: 10,
-          borderRadius: 16,
-          shadowColor: "#111827",
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 6 },
-          elevation: 6,
+          borderRadius: 20,
+          shadowColor: "#0F172A",
+          shadowOpacity: 0.06,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 3,
           position: "absolute",
         },
-        tabBarLabelStyle: { fontWeight: "700", fontSize: 11, marginTop: 2 },
-        tabBarItemStyle: { borderRadius: 10, marginHorizontal: 1 },
+        tabBarLabelStyle: { fontWeight: "700", fontSize: 11, marginTop: 3 },
+        tabBarItemStyle: { borderRadius: 12, marginHorizontal: 2 },
         tabBarHideOnKeyboard: true,
       }}>
       <Tabs.Screen

@@ -35,8 +35,10 @@ export default function PaymentsScreen() {
 
   return (
     <ScreenWrap>
-      <Text style={[styles.title, { color: c.text }]}>Payments</Text>
-      <Text style={[styles.subtitle, { color: c.tabIconDefault }]}>Record, track, and reduce balances in real time</Text>
+      <GlassCard style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>PAYMENTS</Text>
+        <Text style={styles.headerSubtitle}>Record, track, and reduce balances in real time</Text>
+      </GlassCard>
 
       <Animated.View entering={FadeInDown.delay(80)}>
       <GlassCard>
@@ -56,7 +58,7 @@ export default function PaymentsScreen() {
         <Pressable
           onPressIn={() => (glow.value = 1)}
           onPressOut={() => (glow.value = 0)}
-          style={[styles.btn, { backgroundColor: c.accentPositive, shadowColor: c.accentPositive }]}
+          style={[styles.btn, { backgroundColor: "#FFFFFF", borderColor: c.border }]}
           onPress={() => {
             const v = Number(amount);
             if (!cardId || !Number.isFinite(v) || v <= 0) return;
@@ -80,7 +82,7 @@ export default function PaymentsScreen() {
             }}
             style={[
               styles.cardPick,
-              { borderColor: c.border, backgroundColor: card.id === cardId ? "rgba(47,128,255,0.20)" : "transparent" },
+              { borderColor: c.border, backgroundColor: card.id === cardId ? "#F1F5F9" : "#FFFFFF" },
             ]}
           >
             <Text style={{ color: c.text, fontWeight: "700" }}>{card.name}</Text>
@@ -104,8 +106,9 @@ export default function PaymentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: "800", marginTop: 10, marginLeft: 6 },
-  subtitle: { fontSize: 13, marginTop: 2, marginBottom: 2, marginLeft: 6, fontWeight: "600" },
+  headerBanner: { backgroundColor: "#3F4D63", borderColor: "#3F4D63", marginBottom: 2 },
+  headerTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "900", textAlign: "center", letterSpacing: 0.5 },
+  headerSubtitle: { color: "rgba(255,255,255,0.86)", marginTop: 6, textAlign: "center", fontWeight: "600" },
   label: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },
   small: { marginTop: 8, fontSize: 13, fontWeight: "600" },
   input: {
@@ -119,14 +122,15 @@ const styles = StyleSheet.create({
   btn: {
     marginTop: 10,
     borderRadius: 12,
+    borderWidth: 1,
     alignItems: "center",
     paddingVertical: 11,
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 7,
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  btnText: { color: "white", fontSize: 14, fontWeight: "800" },
+  btnText: { color: "#111827", fontSize: 14, fontWeight: "800" },
   cardPick: { marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
   row: { marginTop: 8, fontSize: 13, lineHeight: 18 },
 });

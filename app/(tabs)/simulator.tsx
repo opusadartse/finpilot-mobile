@@ -34,6 +34,7 @@ import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } fr
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 const scenarios: { id: ScoreScenario; label: string }[] = [
   { id: "open_new_card", label: "Open new card" },
@@ -42,6 +43,15 @@ const scenarios: { id: ScoreScenario; label: string }[] = [
   { id: "util_down", label: "Utilization down" },
   { id: "missed_payment", label: "Missed payment" },
 ];
+
+const scenarioIcons: Record<ScoreScenario, keyof typeof Ionicons.glyphMap> = {
+  base: "analytics-outline",
+  open_new_card: "card-outline",
+  pay_down: "arrow-down-circle-outline",
+  util_up: "trending-up-outline",
+  util_down: "trending-down-outline",
+  missed_payment: "alert-circle-outline",
+};
 
 export default function SimulatorScreen() {
   const router = useRouter();
@@ -162,10 +172,10 @@ export default function SimulatorScreen() {
 
   return (
     <ScreenWrap>
-      <Text style={[styles.title, { color: c.text }]}>Credit Simulator</Text>
-      <Text style={[styles.subtitle, { color: c.tabIconDefault }]}>
-        Model estimated score movement before making decisions
-      </Text>
+      <View style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>CREDIT SIMULATOR</Text>
+        <Text style={styles.headerSubtitle}>Model estimated score movement before making decisions</Text>
+      </View>
 
       <Animated.View entering={FadeInDown.delay(40)}>
         <GlassCard>
@@ -176,17 +186,24 @@ export default function SimulatorScreen() {
             }}
             style={[styles.linkRow, { borderColor: c.border }]}
           >
-            <Text style={[styles.linkTitle, { color: c.text }]}>My Payments</Text>
-            <Text style={[styles.linkChevron, { color: c.tint }]}>›</Text>
+            <View style={styles.rowLeft}>
+              <Ionicons name="wallet-outline" size={18} color="#374151" />
+              <Text style={[styles.linkTitle, { color: c.text }]}>My Payments</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
           </Pressable>
 
           <Pressable
             onPress={openScoreModal}
-            style={[styles.primaryOutlineBtn, { borderColor: c.tint }]}
+            style={[styles.primaryOutlineBtn, { borderColor: "#DADADA" }]}
           >
-            <Text style={[styles.primaryOutlineText, { color: c.tint }]}>
-              What&apos;s Your Current Credit Score?
-            </Text>
+            <View style={styles.rowLeft}>
+              <Ionicons name="help-circle-outline" size={18} color="#374151" />
+              <Text style={[styles.primaryOutlineText, { color: "#111827" }]}>
+                What&apos;s Your Current Credit Score?
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
           </Pressable>
 
           <Text style={[styles.baseHint, { color: c.tabIconDefault }]}>
@@ -216,6 +233,13 @@ export default function SimulatorScreen() {
       <Animated.View entering={FadeInDown.delay(70)}>
         <GlassCard style={{ marginTop: 2 }}>
           <Text style={[styles.label, { color: c.tabIconDefault }]}>Scenario</Text>
+          <View style={styles.outlineMenuItem}>
+            <View style={styles.rowLeft}>
+              <Ionicons name="speedometer-outline" size={18} color="#374151" />
+              <Text style={styles.menuText}>Credit Simulator</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+          </View>
           {scenarios.map((s) => (
             <Animated.View key={s.id} style={scenario === s.id ? glowStyle : undefined}>
               <Pressable
@@ -226,15 +250,15 @@ export default function SimulatorScreen() {
                   setScenario(s.id);
                 }}
                 style={[
-                  styles.opt,
-                  {
-                    borderColor: c.border,
-                    backgroundColor:
-                      scenario === s.id ? "rgba(37,99,235,0.14)" : "transparent",
-                  },
+                  styles.outlineMenuItem,
+                  scenario === s.id ? styles.menuActive : undefined,
                 ]}
               >
-                <Text style={{ color: c.text, fontWeight: "700" }}>{s.label}</Text>
+                <View style={styles.rowLeft}>
+                  <Ionicons name={scenarioIcons[s.id]} size={18} color="#374151" />
+                  <Text style={styles.menuText}>{s.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#6B7280" />
               </Pressable>
             </Animated.View>
           ))}
@@ -361,7 +385,7 @@ export default function SimulatorScreen() {
                 </Pressable>
                 <Pressable onPress={saveBaseScore} style={styles.modalSaveWrap}>
                   <LinearGradient
-                    colors={["#0F172A", "#2563EB"]}
+                    colors={["#3F4D63", "#334155"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.modalSave}
@@ -379,31 +403,70 @@ export default function SimulatorScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: "800", marginTop: 10, marginLeft: 6 },
-  subtitle: { fontSize: 13, marginTop: 2, marginBottom: 2, marginLeft: 6, fontWeight: "600" },
+  headerBanner: {
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    backgroundColor: "#3F4D63",
+    marginTop: 4,
+  },
+  headerTitle: { fontSize: 28, fontWeight: "900", color: "#FFFFFF", textAlign: "center", letterSpacing: 0.5 },
+  headerSubtitle: { fontSize: 14, marginTop: 8, color: "rgba(255,255,255,0.86)", textAlign: "center", fontWeight: "600" },
   label: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    marginBottom: 12,
-  },
-  linkTitle: { fontSize: 16, fontWeight: "800" },
-  linkChevron: { fontSize: 22, fontWeight: "700" },
-  primaryOutlineBtn: {
-    borderWidth: 2,
-    borderRadius: 14,
     paddingVertical: 14,
+    marginBottom: 12,
+    borderColor: "#DADADA",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  rowLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  linkTitle: { fontSize: 16, fontWeight: "800" },
+  primaryOutlineBtn: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     alignItems: "center",
+    justifyContent: "space-between",
+    flexDirection: "row",
     marginBottom: 10,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DADADA",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   primaryOutlineText: { fontSize: 15, fontWeight: "800" },
   baseHint: { fontSize: 13, lineHeight: 19, fontWeight: "600" },
-  opt: { marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  outlineMenuItem: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderColor: "#DADADA",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#111827",
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  menuText: { color: "#111827", fontWeight: "700", fontSize: 15 },
+  menuActive: { backgroundColor: "#F8FAFC", borderColor: "#CBD5E1" },
   factorIntro: { fontSize: 13, marginBottom: 10, lineHeight: 18, fontWeight: "600" },
   factorBlock: {
     marginTop: 10,
@@ -411,7 +474,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.65)",
+    backgroundColor: "#FFFFFF",
   },
   factorHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   factorTitle: { fontSize: 14, fontWeight: "800", flex: 1, paddingRight: 10 },
