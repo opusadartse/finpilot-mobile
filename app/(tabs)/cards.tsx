@@ -165,59 +165,76 @@ export default function CardsScreen() {
       <GlassCard style={styles.formCard}>
         <Text style={styles.formHeading}>Create New Credit Card</Text>
         {addSuccessBanner ? <Text style={styles.banner}>{addSuccessBanner}</Text> : null}
-        <Text style={styles.fieldLabel}>Card Name</Text>
-        <TextInput value={name} onChangeText={setName} placeholder="Amex Gold" placeholderTextColor="#9CA3AF" style={styles.input} />
 
-        <Text style={styles.fieldLabel}>Account Open Date (MM/YYYY)</Text>
-        <TextInput
-          value={accountOpenDate}
-          onChangeText={(v) => setAccountOpenDate(cleanMonthYear(v))}
-          placeholder="08/2022"
-          keyboardType="number-pad"
-          placeholderTextColor="#9CA3AF"
-          style={styles.input}
-        />
-
-        <Text style={styles.fieldLabel}>Current Balance ($)</Text>
-        <View style={styles.moneyWrap}>
-          <Text style={styles.prefix}>$</Text>
+        <View style={[styles.fieldBlock, styles.fieldBlockFirst]}>
+          <Text style={styles.fieldLabel}>Card Name</Text>
           <TextInput
-            value={balance}
-            onChangeText={(v) => setBalance(cleanMoney(v))}
-            onBlur={() => setBalance(formatMoney(balance))}
-            placeholder="5322.00"
-            keyboardType="decimal-pad"
+            value={name}
+            onChangeText={setName}
+            placeholder="Amex Gold"
             placeholderTextColor="#9CA3AF"
-            style={styles.moneyInput}
+            style={styles.input}
           />
         </View>
 
-        <Text style={styles.fieldLabel}>Credit Limit ($)</Text>
-        <View style={styles.moneyWrap}>
-          <Text style={styles.prefix}>$</Text>
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Account Open Date (MM/YYYY)</Text>
           <TextInput
-            value={limit}
-            onChangeText={(v) => setLimit(cleanMoney(v))}
-            onBlur={() => setLimit(formatMoney(limit))}
-            placeholder="3000.00"
-            keyboardType="decimal-pad"
+            value={accountOpenDate}
+            onChangeText={(v) => setAccountOpenDate(cleanMonthYear(v))}
+            placeholder="08/2022"
+            keyboardType="number-pad"
             placeholderTextColor="#9CA3AF"
-            style={styles.moneyInput}
+            style={styles.input}
           />
         </View>
 
-        <Text style={styles.fieldLabel}>APR (%)</Text>
-        <View style={styles.moneyWrap}>
-          <Text style={styles.prefix}>%</Text>
-          <TextInput
-            value={apr}
-            onChangeText={(v) => setApr(cleanPercent(v))}
-            onBlur={() => setApr(formatPercent(apr))}
-            placeholder="22.99"
-            keyboardType="decimal-pad"
-            placeholderTextColor="#9CA3AF"
-            style={styles.moneyInput}
-          />
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Current Balance ($)</Text>
+          <View style={styles.inputMoneyShell}>
+            <Text style={styles.inputPrefix}>$</Text>
+            <TextInput
+              value={balance}
+              onChangeText={(v) => setBalance(cleanMoney(v))}
+              onBlur={() => setBalance(formatMoney(balance))}
+              placeholder="5322.00"
+              keyboardType="decimal-pad"
+              placeholderTextColor="#9CA3AF"
+              style={styles.inputMoneyField}
+            />
+          </View>
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Credit Limit ($)</Text>
+          <View style={styles.inputMoneyShell}>
+            <Text style={styles.inputPrefix}>$</Text>
+            <TextInput
+              value={limit}
+              onChangeText={(v) => setLimit(cleanMoney(v))}
+              onBlur={() => setLimit(formatMoney(limit))}
+              placeholder="3000.00"
+              keyboardType="decimal-pad"
+              placeholderTextColor="#9CA3AF"
+              style={styles.inputMoneyField}
+            />
+          </View>
+        </View>
+
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>APR (%)</Text>
+          <View style={styles.inputMoneyShell}>
+            <Text style={styles.inputPrefix}>%</Text>
+            <TextInput
+              value={apr}
+              onChangeText={(v) => setApr(cleanPercent(v))}
+              onBlur={() => setApr(formatPercent(apr))}
+              placeholder="22.99"
+              keyboardType="decimal-pad"
+              placeholderTextColor="#9CA3AF"
+              style={styles.inputMoneyField}
+            />
+          </View>
         </View>
         <View style={styles.addRow}>
           <Pressable onPress={saveNew} style={styles.addBtn}>
@@ -234,8 +251,10 @@ export default function CardsScreen() {
         return (
           <Animated.View key={card.id} entering={FadeInDown.delay(80)}>
           <GlassCard style={styles.cardContainer}>
-            <View style={styles.cardNamePill}>
-              <Text style={styles.cardName}>{card.name}</Text>
+            <View style={styles.cardTitleBanner}>
+              <Text style={styles.cardTitleText} numberOfLines={2}>
+                {card.name}
+              </Text>
             </View>
             <View style={styles.metricGrid}>
               <View style={styles.metricItem}>
@@ -299,21 +318,41 @@ export default function CardsScreen() {
             <Text style={styles.modalTitle}>Edit Card</Text>
             {editingCard ? (
               <>
-                <Text style={styles.fieldLabel}>Card Name</Text>
-                <TextInput value={name} onChangeText={setName} style={styles.input} />
-                <Text style={styles.fieldLabel}>Account Open Date (MM/YYYY)</Text>
-                <TextInput
-                  value={accountOpenDate}
-                  onChangeText={(v) => setAccountOpenDate(cleanMonthYear(v))}
-                  style={styles.input}
-                  keyboardType="number-pad"
-                />
-                <Text style={styles.fieldLabel}>Current Balance ($)</Text>
-                <TextInput value={balance} onChangeText={(v) => setBalance(cleanMoney(v))} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.fieldLabel}>Credit Limit ($)</Text>
-                <TextInput value={limit} onChangeText={(v) => setLimit(cleanMoney(v))} style={styles.input} keyboardType="decimal-pad" />
-                <Text style={styles.fieldLabel}>APR (%)</Text>
-                <TextInput value={apr} onChangeText={(v) => setApr(cleanPercent(v))} style={styles.input} keyboardType="decimal-pad" />
+                <View style={[styles.fieldBlock, styles.fieldBlockFirst]}>
+                  <Text style={styles.fieldLabel}>Card Name</Text>
+                  <TextInput value={name} onChangeText={setName} placeholderTextColor="#9CA3AF" style={styles.input} />
+                </View>
+                <View style={styles.fieldBlock}>
+                  <Text style={styles.fieldLabel}>Account Open Date (MM/YYYY)</Text>
+                  <TextInput
+                    value={accountOpenDate}
+                    onChangeText={(v) => setAccountOpenDate(cleanMonthYear(v))}
+                    style={styles.input}
+                    keyboardType="number-pad"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+                <View style={styles.fieldBlock}>
+                  <Text style={styles.fieldLabel}>Current Balance ($)</Text>
+                  <View style={styles.inputMoneyShell}>
+                    <Text style={styles.inputPrefix}>$</Text>
+                    <TextInput value={balance} onChangeText={(v) => setBalance(cleanMoney(v))} keyboardType="decimal-pad" placeholderTextColor="#9CA3AF" style={styles.inputMoneyField} />
+                  </View>
+                </View>
+                <View style={styles.fieldBlock}>
+                  <Text style={styles.fieldLabel}>Credit Limit ($)</Text>
+                  <View style={styles.inputMoneyShell}>
+                    <Text style={styles.inputPrefix}>$</Text>
+                    <TextInput value={limit} onChangeText={(v) => setLimit(cleanMoney(v))} keyboardType="decimal-pad" placeholderTextColor="#9CA3AF" style={styles.inputMoneyField} />
+                  </View>
+                </View>
+                <View style={styles.fieldBlock}>
+                  <Text style={styles.fieldLabel}>APR (%)</Text>
+                  <View style={styles.inputMoneyShell}>
+                    <Text style={styles.inputPrefix}>%</Text>
+                    <TextInput value={apr} onChangeText={(v) => setApr(cleanPercent(v))} keyboardType="decimal-pad" placeholderTextColor="#9CA3AF" style={styles.inputMoneyField} />
+                  </View>
+                </View>
               </>
             ) : null}
             <View style={styles.modalActionRow}>
@@ -333,8 +372,10 @@ export default function CardsScreen() {
             <Text style={styles.modalLine}>
               Recommended Payment: ${paymentCard ? Math.max(paymentCard.min_payment, paymentCard.current_balance * 0.3).toFixed(2) : "0.00"}
             </Text>
-            <Text style={styles.fieldLabel}>Payment Amount</Text>
-            <TextInput value={paymentAmount} onChangeText={(v) => setPaymentAmount(cleanMoney(v))} keyboardType="decimal-pad" style={styles.input} />
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Payment Amount</Text>
+              <TextInput value={paymentAmount} onChangeText={(v) => setPaymentAmount(cleanMoney(v))} keyboardType="decimal-pad" placeholderTextColor="#9CA3AF" style={styles.input} />
+            </View>
             <View style={styles.modalActionRow}>
               <Pressable onPress={() => setPaymentCardId(null)} style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></Pressable>
               <Pressable
@@ -405,42 +446,89 @@ const styles = StyleSheet.create({
     borderColor: "#273444",
   },
   segmentText: { fontSize: 15, fontWeight: "800" },
-  formCard: { marginBottom: 6 },
-  formHeading: { fontSize: 24, fontWeight: "800", color: "#111827" },
-  fieldLabel: { marginTop: 10, fontSize: 15, fontWeight: "700", color: "#111827" },
-  input: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    borderColor: "#D1D5DB",
-    backgroundColor: "#FFFFFF",
+  formCard: { marginBottom: 6, paddingVertical: 4 },
+  formHeading: {
+    fontSize: 26,
+    fontWeight: "900",
+    marginBottom: 6,
+    textAlign: "center",
     color: "#111827",
+    letterSpacing: 0.2,
   },
-  moneyWrap: { marginTop: 6, position: "relative", justifyContent: "center" },
-  prefix: { position: "absolute", left: 12, zIndex: 2, fontSize: 15, fontWeight: "700", color: "#4B5563" },
-  moneyInput: {
-    flex: 1,
+  /** Matches Loans & Promotions form (`app/(tabs)/loans.tsx`). */
+  fieldBlock: { marginTop: 18 },
+  fieldBlockFirst: { marginTop: 4 },
+  fieldLabel: {
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#111827",
+    letterSpacing: 0.2,
+  },
+  input: {
     borderWidth: 1,
+    borderColor: "#111827",
     borderRadius: 12,
-    paddingLeft: 28,
-    paddingRight: 10,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
     fontSize: 16,
-    borderColor: "#D1D5DB",
     backgroundColor: "#FFFFFF",
     color: "#111827",
+    minHeight: 52,
+  },
+  inputMoneyShell: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    minHeight: 52,
+    backgroundColor: "#FFFFFF",
+  },
+  inputPrefix: { fontSize: 15, fontWeight: "700", color: "#4B5563", marginRight: 8 },
+  inputMoneyField: {
+    flex: 1,
+    paddingVertical: 15,
+    paddingRight: 4,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    minHeight: 48,
   },
   addRow: { marginTop: 14 },
   addBtn: { backgroundColor: "#3F4D63", borderWidth: 1, borderColor: "#3F4D63", borderRadius: 12, alignItems: "center", paddingVertical: 13 },
   addBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
   tip: { marginTop: 8, color: "#4B5563", fontSize: 13, fontWeight: "600" },
   cardContainer: { marginTop: 12, paddingBottom: 16, borderRadius: 18 },
-  cardNamePill: { alignSelf: "flex-start", backgroundColor: "#EEF2F6", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "#D1D5DB" },
-  cardName: { fontSize: 14, fontWeight: "800", color: "#111827" },
-  metricGrid: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginTop: 12 },
+  /** Premium title strip — matches navy CTA language (#3F4D63) like Add / header banner */
+  cardTitleBanner: {
+    alignSelf: "stretch",
+    backgroundColor: "#3F4D63",
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    minHeight: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#475569",
+    marginBottom: 14,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  cardTitleText: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textAlign: "center",
+    letterSpacing: 0.35,
+    lineHeight: 34,
+  },
+  metricGrid: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginTop: 4 },
   metricItem: { flex: 1 },
   metricLabel: { fontSize: 12, fontWeight: "700", color: "#4B5563" },
   metricValue: { marginTop: 4, fontSize: 15, fontWeight: "700", color: "#111827" },
@@ -504,7 +592,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
   },
-  modalTitle: { fontSize: 22, fontWeight: "800", marginBottom: 4, color: "#111827" },
+  modalTitle: { fontSize: 22, fontWeight: "900", marginBottom: 12, color: "#111827", textAlign: "center" },
   modalLine: { fontSize: 14, color: "#4B5563", marginBottom: 6, fontWeight: "600" },
   modalActionRow: { marginTop: 14, flexDirection: "row", gap: 10 },
   modalCancel: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: "#D1D5DB", alignItems: "center", paddingVertical: 10 },

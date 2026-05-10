@@ -12,6 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Haptics from "expo-haptics";
 import { StatusBar } from "expo-status-bar";
 import { LEGAL_DISCLAIMER_BODY } from "@/constants/legalDisclaimer";
+import { persistLegalDisclaimerAccepted } from "@/lib/legalAcceptance";
 import { setLegalDisclaimerAccepted } from "@/lib/db";
 
 type Props = {
@@ -29,11 +30,12 @@ export function FirstLaunchLegalDisclaimer({ onAccepted }: Props) {
     setAccepted((v) => !v);
   }, []);
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
     if (!accepted || submitLock.current) return;
     submitLock.current = true;
     setSaving(true);
     try {
+      await persistLegalDisclaimerAccepted(true);
       setLegalDisclaimerAccepted(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onAccepted();

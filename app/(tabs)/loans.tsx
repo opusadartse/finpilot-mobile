@@ -20,6 +20,16 @@ import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
 import { addLoan, addLoanPayment, deleteLoan, getCards, getLoanPayments, getLoans, getRemainingMonths, setLoanPurchasesThisMonth, updateLoan } from "@/lib/db";
 
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** End / APR expiration default: exactly 12 calendar months after promotion start. */
+function promotionEndFromStart(start: Date): Date {
+  const s = startOfDay(start);
+  return new Date(s.getFullYear(), s.getMonth() + 12, s.getDate());
+}
+
 export default function LoansScreen() {
   const [loans, setLoans] = useState(() => getLoans());
   const [cards, setCards] = useState(() => getCards());
@@ -37,9 +47,9 @@ export default function LoansScreen() {
 
   const [name, setName] = useState("");
   const [amountBorrowed, setAmountBorrowed] = useState("4000");
-  const [startDate, setStartDate] = useState(new Date(2025, 4, 12));
-  const [endDate, setEndDate] = useState(new Date(2026, 4, 12));
-  const [expirationDate, setExpirationDate] = useState(new Date(2026, 4, 12));
+  const [startDate, setStartDate] = useState(() => startOfDay(new Date()));
+  const [endDate, setEndDate] = useState(() => promotionEndFromStart(new Date()));
+  const [expirationDate, setExpirationDate] = useState(() => promotionEndFromStart(new Date()));
   const [monthlyTarget, setMonthlyTarget] = useState("");
   const [notes, setNotes] = useState("0% APR promotion");
   const [editingLoanId, setEditingLoanId] = useState<number | null>(null);
@@ -137,9 +147,11 @@ export default function LoansScreen() {
     setEditingLoanId(null);
     setName("");
     setAmountBorrowed("0");
-    setStartDate(new Date(2025, 4, 12));
-    setEndDate(new Date(2026, 4, 12));
-    setExpirationDate(new Date(2026, 4, 12));
+    const today = startOfDay(new Date());
+    setStartDate(today);
+    const endAt = promotionEndFromStart(today);
+    setEndDate(endAt);
+    setExpirationDate(endAt);
     setMonthlyTarget("0");
     setNotes("");
   }, []);
@@ -170,14 +182,16 @@ export default function LoansScreen() {
     const currentEnd = pickerMode === "create" ? endDate : editEndDate;
     const currentExpiration = pickerMode === "create" ? expirationDate : editExpirationDate;
     if (pickerField === "start") {
+      const s = startOfDay(pickerDate);
+      const endPlus = promotionEndFromStart(s);
       if (pickerMode === "create") {
-        setStartDate(pickerDate);
-        if (currentEnd < pickerDate) setEndDate(pickerDate);
-        if (currentExpiration < pickerDate) setExpirationDate(pickerDate);
+        setStartDate(s);
+        setEndDate(endPlus);
+        setExpirationDate(endPlus);
       } else {
-        setEditStartDate(pickerDate);
-        if (currentEnd < pickerDate) setEditEndDate(pickerDate);
-        if (currentExpiration < pickerDate) setEditExpirationDate(pickerDate);
+        setEditStartDate(s);
+        setEditEndDate(endPlus);
+        setEditExpirationDate(endPlus);
       }
     } else if (pickerField === "end") {
       if (pickerDate < currentStart) {
