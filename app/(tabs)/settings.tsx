@@ -48,11 +48,6 @@ export default function SettingsScreen() {
         <Ionicons name="chevron-forward" size={20} color="#6B7280" />
       </Pressable>
 
-      <Pressable style={styles.linkBtn} onPress={() => router.push("/legal-disclaimer")}>
-        <Text style={styles.linkBtnText}>Legal & Disclaimer</Text>
-        <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-      </Pressable>
-
       <GlassCard style={styles.riskCard}>
         <Text style={styles.cardTitle}>Risk Profile</Text>
         <Text style={styles.copy}>

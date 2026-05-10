@@ -1,4 +1,5 @@
 import * as SQLite from "expo-sqlite";
+import { LEGAL_ACCEPTANCE_STORAGE_KEY } from "@/constants/legalDisclaimer";
 
 export type CardRow = {
   id: number;
@@ -647,6 +648,26 @@ export function setRiskProfile(profile: RiskProfileSetting) {
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     RISK_PROFILE_KEY,
     safeProfile
+  );
+}
+
+/** Legal disclaimer acceptance — uses SQLite (same native module as the rest of the app). */
+export function getLegalDisclaimerAccepted(): boolean {
+  initDb();
+  const row = db.getFirstSync<{ value: string }>(
+    "SELECT value FROM app_settings WHERE key = ?",
+    LEGAL_ACCEPTANCE_STORAGE_KEY
+  );
+  return row?.value === "true";
+}
+
+export function setLegalDisclaimerAccepted(accepted: boolean) {
+  initDb();
+  db.runSync(
+    `INSERT INTO app_settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    LEGAL_ACCEPTANCE_STORAGE_KEY,
+    accepted ? "true" : "false"
   );
 }
 
