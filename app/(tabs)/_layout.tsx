@@ -8,23 +8,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 
-/** Stronger active pill — maximum contrast */
-const NAVY_ACTIVE = "#020617";
+/** Selected tab — navy pill */
+const NAVY_ACTIVE = "#0F172A";
 const ACTIVE_TEXT = "#FFFFFF";
-const INACTIVE_TEXT = "#64748B";
+/** Unselected — same strong tone as active label (no gray “micro” text) */
+const INACTIVE_ON_WHITE = "#0F172A";
 const BAR_SURFACE = "#F8FAFC";
+const TAB_BORDER = "#E2E8F0";
 
-const TAB_MIN_WIDTH = 86;
+const TAB_MIN_WIDTH = 88;
+const ICON_SIZE = 24;
 
 const TAB_ITEM = {
   flexGrow: 0,
   flexShrink: 0,
   minWidth: TAB_MIN_WIDTH,
-  maxWidth: 132,
-  paddingVertical: 9,
-  paddingHorizontal: 7,
-  borderRadius: 14,
-  marginHorizontal: 4,
+  maxWidth: 136,
+  marginHorizontal: 5,
+  borderRadius: 16,
+  overflow: "hidden" as const,
+  borderWidth: 1,
+  borderColor: TAB_BORDER,
+  backgroundColor: "transparent",
 } as const;
 
 function tabIcon(
@@ -33,26 +38,25 @@ function tabIcon(
   focused: boolean,
   color: string
 ) {
-  const size = focused ? 24 : 22;
-  return <Ionicons name={focused ? solid : outline} size={size} color={color} />;
+  return <Ionicons name={focused ? solid : outline} size={ICON_SIZE} color={color} />;
 }
 
-/** Readable two-line labels; `\n` for intentional breaks (e.g. Credit / Cards). */
+/**
+ * Same font size/weight for every tab; only color changes with focus.
+ * No adjustsFontSizeToFit — avoids inactive labels shrinking vs selected.
+ */
 function tabBarLabelFor(text: string) {
-  return function TabBarLabel({ focused, color }: { focused: boolean; color: string }) {
+  return function TabBarLabel({ focused }: { focused: boolean }) {
     return (
       <Text
         numberOfLines={2}
         ellipsizeMode="clip"
-        adjustsFontSizeToFit
-        minimumFontScale={0.65}
         allowFontScaling
         style={[
           styles.tabLabel,
           {
-            color,
+            color: focused ? ACTIVE_TEXT : INACTIVE_ON_WHITE,
             fontWeight: focused ? "900" : "800",
-            opacity: focused ? 1 : 0.92,
           },
         ]}
       >
@@ -68,18 +72,18 @@ type ScrollTabBarProps = BottomTabBarProps & {
 
 function ScrollableTabBar({ shellBorderColor, ...props }: ScrollTabBarProps) {
   const insets = useSafeAreaInsets();
-  const bottomPad = Math.max(insets.bottom, 12);
+  /** Flush with safe area — use system inset only (no extra gray strip) */
+  const bottomPad = Math.max(insets.bottom, 6);
   const minBarWidth = props.state.routes.length * TAB_MIN_WIDTH;
   const hPad = Math.max(insets.left, insets.right, 10);
 
   return (
     <View
       style={[
-        styles.tabBarShell,
+        styles.tabBarRoot,
         {
           borderTopColor: shellBorderColor,
           paddingBottom: bottomPad,
-          paddingHorizontal: hPad,
         },
       ]}
     >
@@ -89,7 +93,7 @@ function ScrollableTabBar({ shellBorderColor, ...props }: ScrollTabBarProps) {
         keyboardShouldPersistTaps="handled"
         bounces
         decelerationRate="fast"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingLeft: hPad, paddingRight: hPad }]}
       >
         <BottomTabBar
           {...props}
@@ -117,9 +121,9 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: ACTIVE_TEXT,
-        tabBarInactiveTintColor: INACTIVE_TEXT,
+        tabBarInactiveTintColor: INACTIVE_ON_WHITE,
         tabBarActiveBackgroundColor: NAVY_ACTIVE,
-        tabBarInactiveBackgroundColor: "transparent",
+        tabBarInactiveBackgroundColor: "#FFFFFF",
         tabBarShowLabel: true,
         tabBarLabelPosition: "below-icon",
         tabBarAllowFontScaling: true,
@@ -131,7 +135,7 @@ export default function TabLayout() {
           elevation: 0,
           shadowOpacity: 0,
           height: undefined,
-          minHeight: 88,
+          minHeight: 78,
           margin: 0,
           padding: 0,
           position: "relative",
@@ -216,18 +220,16 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBarShell: {
+  /** Edge-to-edge, square corners — no curved cutouts that anti-alias to black */
+  tabBarRoot: {
     alignSelf: "stretch",
     width: "100%",
     backgroundColor: BAR_SURFACE,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     marginHorizontal: 0,
-    marginBottom: 0,
     shadowColor: "#0F172A",
-    shadowOpacity: 0.07,
-    shadowRadius: 16,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: -2 },
     elevation: 6,
     overflow: "hidden",
@@ -236,10 +238,9 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     justifyContent: "center",
     alignSelf: "center",
-    paddingTop: 10,
-    paddingBottom: 2,
-    paddingHorizontal: 6,
-    minHeight: 94,
+    paddingTop: 6,
+    paddingBottom: 0,
+    minHeight: 82,
     flexGrow: 1,
   },
   innerBar: {
@@ -250,16 +251,17 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
     position: "relative",
-    minHeight: 88,
+    minHeight: 72,
     flexGrow: 1,
     alignSelf: "center",
   },
   tabLabel: {
-    fontSize: 12.5,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 16,
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 3,
     width: "100%",
-    paddingHorizontal: 2,
+    paddingHorizontal: 3,
+    letterSpacing: 0.1,
   },
 });

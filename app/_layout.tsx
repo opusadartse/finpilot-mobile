@@ -8,6 +8,7 @@ import { isLegalDisclaimerAccepted } from "@/lib/legalAcceptance";
 import { FirstLaunchLegalDisclaimer } from "@/components/FirstLaunchLegalDisclaimer";
 
 import { useColorScheme } from "@/components/useColorScheme";
+import Colors from "@/constants/Colors";
 
 /** DB before first paint — avoids any deferral for dashboard reads */
 initDb();
@@ -22,6 +23,7 @@ type Gate = "loading" | "disclaimer" | "app";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const c = Colors[colorScheme ?? "dark"];
   const [gate, setGate] = useState<Gate>("loading");
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.background } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="how-to-use" />
       </Stack>
