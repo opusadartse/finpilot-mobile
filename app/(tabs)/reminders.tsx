@@ -1,5 +1,18 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -11,13 +24,18 @@ import {
   deleteReminder,
   getCards,
   getLoans,
+  getRemainingMonths,
   getReminderPaymentHistory,
   getReminders,
   markReminderPaid,
+  type CardRow,
+  type LoanPromotionRow,
   ReminderPaymentHistoryRow,
   ReminderRow,
   updateReminder,
 } from "@/lib/db";
+
+type AccountPick = { kind: "card"; card: CardRow } | { kind: "loan"; loan: LoanPromotionRow };
 
 type ReminderStatus = "upcoming" | "dueSoon" | "overdue" | "paid";
 
@@ -68,6 +86,34 @@ function displayCardName(reminder: ReminderRow) {
   return t;
 }
 
+function loanRecommendedMonthly(loan: LoanPromotionRow): number {
+  const target = loan.monthly_payment_target;
+  if (Number.isFinite(target) && target > 0) return target;
+  const months = Math.max(1, getRemainingMonths(loan.interest_free_expiration));
+  return loan.current_balance / months;
+}
+
+function avoidInterestPayment(card: CardRow): number {
+  return Math.max(card.min_payment, card.current_balance * 0.3);
+}
+
+function resolveAccountFromReminder(reminder: ReminderRow, cards: CardRow[], loans: LoanPromotionRow[]): AccountPick | null {
+  if (reminder.source_type === "card" && reminder.source_id != null) {
+    const card = cards.find((c) => c.id === reminder.source_id);
+    if (card) return { kind: "card", card };
+  }
+  if ((reminder.source_type === "loan" || reminder.source_type === "promotion") && reminder.source_id != null) {
+    const loan = loans.find((l) => l.id === reminder.source_id);
+    if (loan) return { kind: "loan", loan };
+  }
+  const base = displayCardName(reminder).trim();
+  const card = cards.find((c) => c.name.trim() === base);
+  if (card) return { kind: "card", card };
+  const loan = loans.find((l) => l.name.trim() === base);
+  if (loan) return { kind: "loan", loan };
+  return null;
+}
+
 function enrichReminder(
   reminder: ReminderRow,
   cards: ReturnType<typeof getCards>,
@@ -92,8 +138,25 @@ function enrichReminder(
     const loan = loans.find((l) => l.id === reminder.source_id);
     if (loan) {
       displayName = loan.name;
-      minPayment = loan.monthly_payment_target;
+      minPayment = loanRecommendedMonthly(loan);
       lastFour = pseudoLastFour(loan.id + 7000);
+    }
+  }
+
+  if (minPayment == null) {
+    const base = displayName.trim();
+    const c = cards.find((x) => x.name.trim() === base);
+    if (c) {
+      displayName = c.name;
+      minPayment = c.min_payment;
+      lastFour = pseudoLastFour(c.id + c.name.length);
+    } else {
+      const loan = loans.find((x) => x.name.trim() === base);
+      if (loan) {
+        displayName = loan.name;
+        minPayment = loanRecommendedMonthly(loan);
+        lastFour = pseudoLastFour(loan.id + 7000);
+      }
     }
   }
 
@@ -110,7 +173,9 @@ export default function RemindersScreen() {
   const [viewAll, setViewAll] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
+  const [accountPickerVisible, setAccountPickerVisible] = useState(false);
   const [editReminderId, setEditReminderId] = useState<number | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<AccountPick | null>(null);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
@@ -119,6 +184,16 @@ export default function RemindersScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [sourceInput, setSourceInput] = useState("Bank account");
   const [sourceReminderId, setSourceReminderId] = useState<number | null>(null);
+
+  const resolvedAccount = useMemo((): AccountPick | null => {
+    if (!selectedAccount) return null;
+    if (selectedAccount.kind === "card") {
+      const fresh = cards.find((c) => c.id === selectedAccount.card.id);
+      return fresh ? { kind: "card", card: fresh } : selectedAccount;
+    }
+    const fresh = loans.find((l) => l.id === selectedAccount.loan.id);
+    return fresh ? { kind: "loan", loan: fresh } : selectedAccount;
+  }, [selectedAccount, cards, loans]);
 
   const reload = useCallback(() => {
     setReminders(getReminders());
@@ -140,7 +215,9 @@ export default function RemindersScreen() {
 
   const openAddModal = useCallback(() => {
     setFormVisible(true);
+    setAccountPickerVisible(false);
     setEditReminderId(null);
+    setSelectedAccount(null);
     setTitle("");
     setAmount("");
     setNotes("");
@@ -149,8 +226,13 @@ export default function RemindersScreen() {
   }, []);
 
   const openEditModal = useCallback((reminder: ReminderRow) => {
+    const c = getCards();
+    const l = getLoans();
+    const pick = resolveAccountFromReminder(reminder, c, l);
     setFormVisible(true);
+    setAccountPickerVisible(false);
     setEditReminderId(reminder.id);
+    setSelectedAccount(pick);
     setTitle(reminder.title);
     setAmount(reminder.amount_due.toFixed(2));
     setNotes(reminder.notes ?? "");
@@ -160,8 +242,18 @@ export default function RemindersScreen() {
 
   const saveReminder = useCallback(() => {
     const parsedAmount = Number(amount);
-    if (!title.trim()) {
-      Alert.alert("Missing title", "Please enter a card or loan name.");
+    const titleForSave = resolvedAccount
+      ? resolvedAccount.kind === "card"
+        ? resolvedAccount.card.name.trim()
+        : resolvedAccount.loan.name.trim()
+      : title.trim();
+
+    if (!editReminderId && !resolvedAccount) {
+      Alert.alert("Select an account", "Choose a credit card or loan from the list.");
+      return;
+    }
+    if (!titleForSave) {
+      Alert.alert("Missing account", "Please select a card or loan.");
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -170,7 +262,7 @@ export default function RemindersScreen() {
     }
     if (editReminderId) {
       updateReminder(editReminderId, {
-        title: title.trim(),
+        title: titleForSave,
         amount_due: parsedAmount,
         due_date: dueDate.toISOString(),
         notes: notes.trim(),
@@ -178,7 +270,7 @@ export default function RemindersScreen() {
       });
     } else {
       addReminder({
-        title: title.trim(),
+        title: titleForSave,
         amount_due: parsedAmount,
         due_date: dueDate.toISOString(),
         notes: notes.trim(),
@@ -187,8 +279,9 @@ export default function RemindersScreen() {
     }
     setFormVisible(false);
     setEditReminderId(null);
+    setSelectedAccount(null);
     reload();
-  }, [amount, dueDate, editReminderId, notes, reload, repeatMonthly, title]);
+  }, [amount, dueDate, editReminderId, notes, reload, repeatMonthly, resolvedAccount, title]);
 
   return (
     <ScreenWrap>
@@ -328,65 +421,248 @@ export default function RemindersScreen() {
         </GlassCard>
       ) : null}
 
-      <Modal visible={formVisible} transparent animationType="slide" onRequestClose={() => setFormVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{editReminderId ? "Edit Reminder" : "Add Reminder"}</Text>
-            <Text style={styles.fieldLabel}>Card or loan name</Text>
-            <TextInput value={title} onChangeText={setTitle} style={styles.input} placeholder="Amex Platinum" placeholderTextColor="#94A3B8" />
-            <Text style={styles.fieldLabel}>Payment amount</Text>
-            <TextInput
-              value={amount}
-              onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ""))}
-              keyboardType="decimal-pad"
-              style={styles.input}
-              placeholder="$250.00"
-              placeholderTextColor="#94A3B8"
-            />
-            <Text style={styles.fieldLabel}>Due date</Text>
-            <Pressable style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
-              <Ionicons name="calendar-outline" size={18} color="#374151" />
-              <Text style={styles.dateBtnText}>{dueDate.toLocaleDateString()}</Text>
-            </Pressable>
-            {showDatePicker ? (
-              <DateTimePicker
-                value={dueDate}
-                mode="date"
-                display="default"
-                onChange={(_, selected) => {
-                  setShowDatePicker(false);
-                  if (selected) setDueDate(selected);
-                }}
-              />
-            ) : null}
-            <Text style={styles.fieldLabel}>Notes</Text>
-            <TextInput
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              textAlignVertical="top"
-              style={styles.notesInput}
-              placeholder="Optional details"
-              placeholderTextColor="#94A3B8"
-            />
-            <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>Repeat monthly</Text>
-              <Switch value={repeatMonthly} onValueChange={setRepeatMonthly} trackColor={{ false: "#E2E8F0", true: "#CBD5E1" }} />
+      <Modal
+        visible={formVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setFormVisible(false);
+          setEditReminderId(null);
+          setSelectedAccount(null);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalKav}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+        >
+          <View style={styles.modalBackdrop}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.reminderFormScroll}
+              nestedScrollEnabled
+            >
+              <View style={styles.modalCard}>
+                  <Text style={styles.modalTitle}>{editReminderId ? "Edit Reminder" : "Add Reminder"}</Text>
+
+                  <Text style={styles.fieldLabel}>Account</Text>
+                  <Pressable
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setAccountPickerVisible(true);
+                    }}
+                    style={styles.accountPickerField}
+                  >
+                    <Text
+                      style={[styles.accountPickerValue, !resolvedAccount && styles.accountPickerPlaceholder]}
+                      numberOfLines={1}
+                    >
+                      {resolvedAccount
+                        ? resolvedAccount.kind === "card"
+                          ? resolvedAccount.card.name
+                          : resolvedAccount.loan.name
+                        : "Tap to choose a card or loan"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                  {cards.length === 0 && loans.length === 0 ? (
+                    <Text style={styles.accountHint}>Add a card or loan elsewhere in the app to see it here.</Text>
+                  ) : null}
+
+                  {resolvedAccount?.kind === "card" ? (
+                    <>
+                      <Text style={styles.fieldLabel}>Quick amount</Text>
+                      <View style={styles.amountChipsRow}>
+                        <Pressable
+                          onPress={() => setAmount(resolvedAccount.card.min_payment.toFixed(2))}
+                          style={({ pressed }) => [styles.amountChip, pressed && styles.amountChipPressed]}
+                        >
+                          <Text style={styles.amountChipText}>Minimum payment</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setAmount(resolvedAccount.card.current_balance.toFixed(2))}
+                          style={({ pressed }) => [styles.amountChip, pressed && styles.amountChipPressed]}
+                        >
+                          <Text style={styles.amountChipText}>Full statement balance</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setAmount(avoidInterestPayment(resolvedAccount.card).toFixed(2))}
+                          style={({ pressed }) => [styles.amountChip, pressed && styles.amountChipPressed]}
+                        >
+                          <Text style={styles.amountChipText}>Avoid interest payment</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : null}
+
+                  {resolvedAccount?.kind === "loan" ? (
+                    <>
+                      <Text style={styles.fieldLabel}>Quick amount</Text>
+                      <View style={styles.amountChipsRow}>
+                        <Pressable
+                          onPress={() => setAmount(loanRecommendedMonthly(resolvedAccount.loan).toFixed(2))}
+                          style={({ pressed }) => [styles.amountChip, pressed && styles.amountChipPressed]}
+                        >
+                          <Text style={styles.amountChipText}>Recommended monthly payment</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setAmount(resolvedAccount.loan.current_balance.toFixed(2))}
+                          style={({ pressed }) => [styles.amountChip, pressed && styles.amountChipPressed]}
+                        >
+                          <Text style={styles.amountChipText}>Full remaining balance</Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : null}
+
+                  <Text style={styles.fieldLabel}>Payment amount</Text>
+                  <TextInput
+                    value={amount}
+                    onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ""))}
+                    keyboardType="decimal-pad"
+                    style={styles.input}
+                    placeholder="0.00"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.fieldLabel}>Due date</Text>
+                  <Pressable style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
+                    <Ionicons name="calendar-outline" size={18} color="#374151" />
+                    <Text style={styles.dateBtnText}>{dueDate.toLocaleDateString()}</Text>
+                  </Pressable>
+                  {showDatePicker ? (
+                    <DateTimePicker
+                      value={dueDate}
+                      mode="date"
+                      display="default"
+                      onChange={(_, selected) => {
+                        setShowDatePicker(false);
+                        if (selected) setDueDate(selected);
+                      }}
+                    />
+                  ) : null}
+
+                  <Text style={styles.fieldLabel}>Notes</Text>
+                  <TextInput
+                    value={notes}
+                    onChangeText={setNotes}
+                    multiline
+                    textAlignVertical="top"
+                    style={styles.notesInput}
+                    placeholder="Optional details"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <View style={styles.switchRow}>
+                    <Text style={styles.switchLabel}>Repeat monthly</Text>
+                    <Switch
+                      value={repeatMonthly}
+                      onValueChange={setRepeatMonthly}
+                      trackColor={{ false: "#E2E8F0", true: "#CBD5E1" }}
+                    />
+                  </View>
+
+                  <View style={styles.modalActions}>
+                    <Pressable
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setFormVisible(false);
+                        setEditReminderId(null);
+                        setSelectedAccount(null);
+                      }}
+                      style={styles.modalCancelBtn}
+                    >
+                      <Text style={styles.modalCancelText}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        saveReminder();
+                      }}
+                      style={styles.modalSaveBtn}
+                    >
+                      <Text style={styles.modalSaveText}>Save</Text>
+                    </Pressable>
+                  </View>
+
+                  <Pressable
+                    onPress={Keyboard.dismiss}
+                    style={styles.keyboardDismissArea}
+                    accessibilityLabel="Dismiss keyboard"
+                    accessibilityRole="button"
+                  />
+                </View>
+              </ScrollView>
             </View>
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={() => {
-                  setFormVisible(false);
-                  setEditReminderId(null);
-                }}
-                style={styles.modalCancelBtn}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={saveReminder} style={styles.modalSaveBtn}>
-                <Text style={styles.modalSaveText}>Save</Text>
-              </Pressable>
-            </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={accountPickerVisible} transparent animationType="slide" onRequestClose={() => setAccountPickerVisible(false)}>
+        <View style={styles.pickerModalRoot}>
+          <Pressable style={styles.pickerModalBackdrop} onPress={() => setAccountPickerVisible(false)} />
+          <View style={styles.pickerSheet}>
+            <View style={styles.pickerGrabber} />
+            <Text style={styles.pickerTitle}>Choose account</Text>
+            <ScrollView keyboardShouldPersistTaps="handled" style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+              {cards.length > 0 ? (
+                <>
+                  <Text style={styles.pickerSectionLabel}>Credit cards</Text>
+                  {cards.map((card) => (
+                    <Pressable
+                      key={`card-${card.id}`}
+                      onPress={() => {
+                        setSelectedAccount({ kind: "card", card });
+                        setTitle(card.name);
+                        setAmount(card.min_payment.toFixed(2));
+                        setAccountPickerVisible(false);
+                      }}
+                      style={({ pressed }) => [styles.pickerRow, pressed && styles.pickerRowPressed]}
+                    >
+                      <Ionicons name="card-outline" size={22} color="#3F4D63" />
+                      <View style={styles.pickerRowText}>
+                        <Text style={styles.pickerRowTitle}>{card.name}</Text>
+                        <Text style={styles.pickerRowSub}>Balance ${card.current_balance.toFixed(2)}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                    </Pressable>
+                  ))}
+                </>
+              ) : null}
+
+              {loans.length > 0 ? (
+                <>
+                  <Text style={[styles.pickerSectionLabel, cards.length > 0 ? styles.pickerSectionSpaced : undefined]}>
+                    Loans & promotions
+                  </Text>
+                  {loans.map((loan) => (
+                    <Pressable
+                      key={`loan-${loan.id}`}
+                      onPress={() => {
+                        setSelectedAccount({ kind: "loan", loan });
+                        setTitle(loan.name);
+                        setAmount(loanRecommendedMonthly(loan).toFixed(2));
+                        setAccountPickerVisible(false);
+                      }}
+                      style={({ pressed }) => [styles.pickerRow, pressed && styles.pickerRowPressed]}
+                    >
+                      <Ionicons name="trending-down-outline" size={22} color="#3F4D63" />
+                      <View style={styles.pickerRowText}>
+                        <Text style={styles.pickerRowTitle}>{loan.name}</Text>
+                        <Text style={styles.pickerRowSub}>Balance ${loan.current_balance.toFixed(2)}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                    </Pressable>
+                  ))}
+                </>
+              ) : null}
+
+              {cards.length === 0 && loans.length === 0 ? (
+                <Text style={styles.pickerEmpty}>No cards or loans yet. Add one in Cards or Loans first.</Text>
+              ) : null}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -659,11 +935,19 @@ const styles = StyleSheet.create({
     color: "#111827",
     lineHeight: 20,
   },
+  modalKav: {
+    flex: 1,
+  },
   modalBackdrop: {
     flex: 1,
-    justifyContent: "center",
     backgroundColor: "rgba(15,23,42,0.45)",
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  reminderFormScroll: {
+    flexGrow: 1,
+    paddingBottom: 28,
   },
   modalCard: {
     borderRadius: 20,
@@ -774,5 +1058,151 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "900",
     fontSize: 15,
+  },
+  accountPickerField: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    backgroundColor: "#FFFFFF",
+  },
+  accountPickerValue: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  accountPickerPlaceholder: {
+    color: "#94A3B8",
+    fontWeight: "600",
+  },
+  accountHint: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+    lineHeight: 18,
+  },
+  amountChipsRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  amountChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    backgroundColor: "#F8FAFC",
+  },
+  amountChipPressed: {
+    backgroundColor: "#EEF2F7",
+    borderColor: "#CBD5E1",
+  },
+  amountChipText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#3F4D63",
+  },
+  keyboardDismissArea: {
+    minHeight: 56,
+    marginTop: 4,
+  },
+  pickerModalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  pickerModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15,23,42,0.45)",
+  },
+  pickerSheet: {
+    maxHeight: "88%",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingBottom: 28,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+  },
+  pickerGrabber: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E2E8F0",
+    marginBottom: 12,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  pickerScroll: {
+    maxHeight: 520,
+  },
+  pickerSectionLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  pickerSectionSpaced: {
+    marginTop: 18,
+  },
+  pickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E2E8F0",
+  },
+  pickerRowPressed: {
+    backgroundColor: "#F8FAFC",
+  },
+  pickerRowText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pickerRowTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  pickerRowSub: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  pickerEmpty: {
+    paddingVertical: 24,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 22,
   },
 });
