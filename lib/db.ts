@@ -70,6 +70,14 @@ export type ReminderPaymentHistoryRow = {
   payment_source: string;
 };
 
+/** Snapshot of estimated score when visiting the dashboard (for Recent History chart). */
+export type ScoreHistoryRow = {
+  id: number;
+  estimated_score: number;
+  utilization: number;
+  created_at: string;
+};
+
 const db = SQLite.openDatabaseSync("finpilot_mobile.db");
 let initialized = false;
 
@@ -693,6 +701,34 @@ export function setUserBaseScore(score: number) {
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     USER_BASE_CREDIT_SCORE_KEY,
     String(clamped)
+  );
+}
+
+/** Chronological score snapshots (oldest first). */
+export function getScoreHistory(): ScoreHistoryRow[] {
+  initDb();
+  return db.getAllSync<ScoreHistoryRow>(
+    `SELECT * FROM score_history
+     WHERE datetime(created_at) >= datetime('now', '-9 months')
+     ORDER BY datetime(created_at) ASC`
+  );
+}
+
+/** At most one snapshot per calendar day — builds real history over time. */
+export function appendScoreHistorySnapshotIfNeeded(estimatedScore: number, utilization: number) {
+  initDb();
+  const clamped = Math.max(300, Math.min(850, Math.round(estimatedScore)));
+  const util = Number.isFinite(utilization) ? Math.max(0, Math.min(1, utilization)) : 0;
+  const latest = db.getFirstSync<{ created_at: string }>(
+    `SELECT created_at FROM score_history ORDER BY datetime(created_at) DESC LIMIT 1`
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  if (latest?.created_at?.slice(0, 10) === today) return;
+  db.runSync(
+    `INSERT INTO score_history (estimated_score, utilization, created_at) VALUES (?, ?, ?)`,
+    clamped,
+    util,
+    new Date().toISOString()
   );
 }
 

@@ -5,18 +5,22 @@ import { useRouter } from "expo-router";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
 import {
+  appendScoreHistorySnapshotIfNeeded,
   dashboardSummary,
   getCards,
   getLoanPayments,
   getPayments,
   getReminders,
   getRiskProfile,
+  getScoreHistory,
   getUserBaseScore,
 } from "@/lib/db";
 import { calculateRisk, computeDynamicScore, getRiskBand, getRiskColor } from "@/lib/score";
+import { buildSixMonthScoreSeries } from "@/lib/scoreHistory";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 import { useFocusEffect } from "@react-navigation/native";
+import { ScoreHistoryChart } from "@/components/ScoreHistoryChart";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -27,11 +31,21 @@ export default function DashboardScreen() {
   const [baseScore, setBaseScore] = useState(() => getUserBaseScore());
   const [reminders, setReminders] = useState(() => getReminders());
   const [riskProfile, setRiskProfile] = useState(() => getRiskProfile());
+  const [scoreHistory, setScoreHistory] = useState(() => getScoreHistory());
   useFocusEffect(
     useCallback(() => {
-      setCards(getCards());
-      setSummary(dashboardSummary());
-      setBaseScore(getUserBaseScore());
+      const bs = getUserBaseScore();
+      const nextCards = getCards();
+      const nextSummary = dashboardSummary();
+      const utilCalc = nextSummary.totalCredit > 0 ? nextSummary.cardDebt / nextSummary.totalCredit : 0;
+      const dyn = computeDynamicScore(bs, nextCards, nextSummary.loans, getPayments(), getLoanPayments());
+      if (dyn.currentScore != null) {
+        appendScoreHistorySnapshotIfNeeded(dyn.currentScore, utilCalc);
+      }
+      setScoreHistory(getScoreHistory());
+      setCards(nextCards);
+      setSummary(nextSummary);
+      setBaseScore(bs);
       setReminders(getReminders());
       setRiskProfile(getRiskProfile());
     }, [])
@@ -50,12 +64,10 @@ export default function DashboardScreen() {
       ),
     [baseScore, cards, summary.loans]
   );
-  const trendAnchor = scoreModel.currentScore ?? 690;
-  const trend = [0, 1, 2, 3, 4, 5].map((x) => ({
-    x,
-    y: Math.max(300, Math.min(850, trendAnchor - 22 + x * 6)),
-  }));
-  const trendPalette = ["#E2E8F0", "#CBD5E1", "#B6C2D1", "#9AAABD", "#73859A", "#4A5C72"];
+  const historySeries = useMemo(
+    () => buildSixMonthScoreSeries(scoreHistory, scoreModel.currentScore),
+    [scoreHistory, scoreModel.currentScore]
+  );
   const riskModel = useMemo(() => {
     if (!cards.length) {
       const risk = calculateRisk(util * 100, 0, 0, 0, riskProfile);
@@ -155,22 +167,15 @@ export default function DashboardScreen() {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(280)}>
-        <GlassCard style={styles.trendCard}>
-          <Text style={[styles.trendTitle, { color: c.text }]}>Score Trend</Text>
-          <View style={styles.sparkWrap}>
-            {trend.map((p) => (
-              <View
-                key={p.x}
-                style={[
-                  styles.sparkCol,
-                  {
-                    height: Math.max(18, (p.y - 300) / 3.2),
-                    backgroundColor: trendPalette[p.x] ?? "#2563EB",
-                  },
-                ]}
-              />
-            ))}
-          </View>
+        <GlassCard style={[styles.trendCard, styles.historyCardSurface]}>
+          <Text style={[styles.trendTitle, { color: "#111827" }]}>Recent History</Text>
+          <ScoreHistoryChart
+            values={historySeries.values}
+            monthLabels={historySeries.monthLabels}
+            lineColor="#3F4D63"
+            gridColor="#E8ECF1"
+            labelColor="#64748B"
+          />
         </GlassCard>
       </Animated.View>
 
@@ -223,6 +228,10 @@ const styles = StyleSheet.create({
   statCard: { paddingVertical: 20 },
   scoreCard: { paddingVertical: 22 },
   trendCard: { paddingVertical: 20 },
+  historyCardSurface: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+  },
   alertCard: { paddingVertical: 18, backgroundColor: "#F8FAFC", borderColor: "#E2E8F0" },
   reminderCard: { paddingVertical: 18 },
   reminderCardUrgent: { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
@@ -234,7 +243,7 @@ const styles = StyleSheet.create({
   scoreCompact: { fontSize: 48, fontWeight: "900" },
   pos: { marginTop: 6, fontWeight: "800", fontSize: 16 },
   riskLine: { marginTop: 8, fontSize: 13, fontWeight: "800" },
-  trendTitle: { fontSize: 24, fontWeight: "800", marginBottom: 12 },
+  trendTitle: { fontSize: 24, fontWeight: "800", marginBottom: 4 },
   reminderTitle: { fontSize: 22, fontWeight: "800" },
   reminderLine: { marginTop: 8, fontSize: 15, fontWeight: "700" },
   alertTitle: { fontSize: 24, fontWeight: "900", color: "#111827" },
@@ -250,15 +259,4 @@ const styles = StyleSheet.create({
     borderColor: "#D1D5DB",
   },
   linkText: { fontSize: 16, fontWeight: "800", color: "#111827" },
-  sparkWrap: {
-    height: 182,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    paddingTop: 2,
-  },
-  sparkCol: {
-    width: 30,
-    borderRadius: 14,
-  },
 });

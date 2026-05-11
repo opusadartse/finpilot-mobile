@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
+  InteractionManager,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -11,11 +13,12 @@ import {
   Switch,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { GlassCard } from "@/components/GlassCard";
 import { ScreenWrap } from "@/components/ScreenWrap";
@@ -36,6 +39,10 @@ import {
 } from "@/lib/db";
 
 type AccountPick = { kind: "card"; card: CardRow } | { kind: "loan"; loan: LoanPromotionRow };
+
+type AccountPickerRow =
+  | { key: string; kind: "card"; card: CardRow }
+  | { key: string; kind: "loan"; loan: LoanPromotionRow };
 
 type ReminderStatus = "upcoming" | "dueSoon" | "overdue" | "paid";
 
@@ -164,6 +171,7 @@ function enrichReminder(
 }
 
 export default function RemindersScreen() {
+  const { height: windowHeight } = useWindowDimensions();
   const [reminders, setReminders] = useState<ReminderRow[]>(() => getReminders());
   const [cards, setCards] = useState(() => getCards());
   const [loans, setLoans] = useState(() => getLoans());
@@ -194,6 +202,20 @@ export default function RemindersScreen() {
     const fresh = loans.find((l) => l.id === selectedAccount.loan.id);
     return fresh ? { kind: "loan", loan: fresh } : selectedAccount;
   }, [selectedAccount, cards, loans]);
+
+  /** Cards + loans from DB, one list sorted A–Z (updates when cards/loans change). */
+  const accountPickerRows = useMemo((): AccountPickerRow[] => {
+    const rows: AccountPickerRow[] = [
+      ...cards.map((card) => ({ key: `card-${card.id}`, kind: "card" as const, card })),
+      ...loans.map((loan) => ({ key: `loan-${loan.id}`, kind: "loan" as const, loan })),
+    ];
+    rows.sort((a, b) => {
+      const na = a.kind === "card" ? a.card.name : a.loan.name;
+      const nb = b.kind === "card" ? b.card.name : b.loan.name;
+      return na.localeCompare(nb, undefined, { sensitivity: "base" });
+    });
+    return rows;
+  }, [cards, loans]);
 
   const reload = useCallback(() => {
     setReminders(getReminders());
@@ -278,6 +300,7 @@ export default function RemindersScreen() {
       });
     }
     setFormVisible(false);
+    setAccountPickerVisible(false);
     setEditReminderId(null);
     setSelectedAccount(null);
     reload();
@@ -427,12 +450,15 @@ export default function RemindersScreen() {
         animationType="slide"
         onRequestClose={() => {
           Keyboard.dismiss();
+          setAccountPickerVisible(false);
           setFormVisible(false);
           setEditReminderId(null);
           setSelectedAccount(null);
         }}
       >
+        <View style={styles.reminderFormModalRoot}>
         <KeyboardAvoidingView
+          enabled={!accountPickerVisible}
           style={styles.modalKav}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
@@ -452,7 +478,9 @@ export default function RemindersScreen() {
                   <Pressable
                     onPress={() => {
                       Keyboard.dismiss();
-                      setAccountPickerVisible(true);
+                      InteractionManager.runAfterInteractions(() => {
+                        setAccountPickerVisible(true);
+                      });
                     }}
                     style={styles.accountPickerField}
                   >
@@ -569,6 +597,7 @@ export default function RemindersScreen() {
                     <Pressable
                       onPress={() => {
                         Keyboard.dismiss();
+                        setAccountPickerVisible(false);
                         setFormVisible(false);
                         setEditReminderId(null);
                         setSelectedAccount(null);
@@ -598,72 +627,83 @@ export default function RemindersScreen() {
               </ScrollView>
             </View>
         </KeyboardAvoidingView>
-      </Modal>
 
-      <Modal visible={accountPickerVisible} transparent animationType="slide" onRequestClose={() => setAccountPickerVisible(false)}>
-        <View style={styles.pickerModalRoot}>
-          <Pressable style={styles.pickerModalBackdrop} onPress={() => setAccountPickerVisible(false)} />
-          <View style={styles.pickerSheet}>
-            <View style={styles.pickerGrabber} />
-            <Text style={styles.pickerTitle}>Choose account</Text>
-            <ScrollView keyboardShouldPersistTaps="handled" style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
-              {cards.length > 0 ? (
-                <>
-                  <Text style={styles.pickerSectionLabel}>Credit cards</Text>
-                  {cards.map((card) => (
-                    <Pressable
-                      key={`card-${card.id}`}
-                      onPress={() => {
-                        setSelectedAccount({ kind: "card", card });
-                        setTitle(card.name);
-                        setAmount(card.min_payment.toFixed(2));
-                        setAccountPickerVisible(false);
-                      }}
-                      style={({ pressed }) => [styles.pickerRow, pressed && styles.pickerRowPressed]}
-                    >
-                      <Ionicons name="card-outline" size={22} color="#3F4D63" />
-                      <View style={styles.pickerRowText}>
-                        <Text style={styles.pickerRowTitle}>{card.name}</Text>
-                        <Text style={styles.pickerRowSub}>Balance ${card.current_balance.toFixed(2)}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-                    </Pressable>
-                  ))}
-                </>
-              ) : null}
-
-              {loans.length > 0 ? (
-                <>
-                  <Text style={[styles.pickerSectionLabel, cards.length > 0 ? styles.pickerSectionSpaced : undefined]}>
-                    Loans & promotions
-                  </Text>
-                  {loans.map((loan) => (
-                    <Pressable
-                      key={`loan-${loan.id}`}
-                      onPress={() => {
-                        setSelectedAccount({ kind: "loan", loan });
-                        setTitle(loan.name);
-                        setAmount(loanRecommendedMonthly(loan).toFixed(2));
-                        setAccountPickerVisible(false);
-                      }}
-                      style={({ pressed }) => [styles.pickerRow, pressed && styles.pickerRowPressed]}
-                    >
-                      <Ionicons name="trending-down-outline" size={22} color="#3F4D63" />
-                      <View style={styles.pickerRowText}>
-                        <Text style={styles.pickerRowTitle}>{loan.name}</Text>
-                        <Text style={styles.pickerRowSub}>Balance ${loan.current_balance.toFixed(2)}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-                    </Pressable>
-                  ))}
-                </>
-              ) : null}
-
-              {cards.length === 0 && loans.length === 0 ? (
+        {accountPickerVisible ? (
+          <View style={styles.accountPickerOverlay} pointerEvents="box-none">
+            <Animated.View entering={FadeIn.duration(200)} style={styles.accountPickerDim}>
+              <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setAccountPickerVisible(false)} />
+            </Animated.View>
+            <Animated.View
+              entering={FadeIn.duration(220).easing(Easing.out(Easing.quad))}
+              style={[styles.accountPickerSheet, { maxHeight: Math.min(windowHeight * 0.82, 620) }]}
+            >
+              <View style={styles.pickerGrabber} />
+              <Text style={styles.pickerTitle}>Choose account</Text>
+              <Text style={styles.pickerSubtitle}>From your saved cards and loans</Text>
+              {accountPickerRows.length === 0 ? (
                 <Text style={styles.pickerEmpty}>No cards or loans yet. Add one in Cards or Loans first.</Text>
-              ) : null}
-            </ScrollView>
+              ) : (
+                <FlatList
+                  data={accountPickerRows}
+                  keyExtractor={(item) => item.key}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                  alwaysBounceVertical={false}
+                  overScrollMode="never"
+                  style={[styles.accountPickerList, { maxHeight: Math.min(windowHeight * 0.54, 460) }]}
+                  contentContainerStyle={styles.accountPickerListContent}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      onPress={() => {
+                        if (item.kind === "card") {
+                          setSelectedAccount({ kind: "card", card: item.card });
+                          setTitle(item.card.name);
+                          setAmount(item.card.min_payment.toFixed(2));
+                        } else {
+                          setSelectedAccount({ kind: "loan", loan: item.loan });
+                          setTitle(item.loan.name);
+                          setAmount(loanRecommendedMonthly(item.loan).toFixed(2));
+                        }
+                        setAccountPickerVisible(false);
+                      }}
+                      style={({ pressed }) => [styles.pickerRow, pressed && styles.pickerRowPressed]}
+                    >
+                      <View style={styles.pickerRowIconWrap}>
+                        <Ionicons
+                          name={item.kind === "card" ? "card-outline" : "trending-down-outline"}
+                          size={22}
+                          color="#3F4D63"
+                        />
+                      </View>
+                      <View style={styles.pickerRowText}>
+                        <View style={styles.pickerRowTitleRow}>
+                          <Text style={styles.pickerRowTitle} numberOfLines={2}>
+                            {item.kind === "card" ? item.card.name : item.loan.name}
+                          </Text>
+                          <View style={[styles.pickerKindPill, item.kind === "loan" ? styles.pickerKindPillLoan : undefined]}>
+                            <Text
+                              style={[
+                                styles.pickerKindPillText,
+                                item.kind === "loan" ? styles.pickerKindPillTextLoan : undefined,
+                              ]}
+                            >
+                              {item.kind === "card" ? "Card" : "Loan"}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.pickerRowSub}>
+                          Balance ${(item.kind === "card" ? item.card.current_balance : item.loan.current_balance).toFixed(2)}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                    </Pressable>
+                  )}
+                />
+              )}
+            </Animated.View>
           </View>
+        ) : null}
         </View>
       </Modal>
 
@@ -935,8 +975,46 @@ const styles = StyleSheet.create({
     color: "#111827",
     lineHeight: 20,
   },
+  reminderFormModalRoot: {
+    flex: 1,
+  },
   modalKav: {
     flex: 1,
+  },
+  accountPickerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 200,
+    elevation: 32,
+  },
+  accountPickerDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15,23,42,0.48)",
+  },
+  accountPickerSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 8,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 12,
+  },
+  accountPickerList: {
+    flexGrow: 0,
+  },
+  accountPickerListContent: {
+    paddingBottom: 20,
   },
   modalBackdrop: {
     flex: 1,
@@ -1116,30 +1194,6 @@ const styles = StyleSheet.create({
     minHeight: 56,
     marginTop: 4,
   },
-  pickerModalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  pickerModalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15,23,42,0.45)",
-  },
-  pickerSheet: {
-    maxHeight: "88%",
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    shadowColor: "#0F172A",
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
-  },
   pickerGrabber: {
     alignSelf: "center",
     width: 40,
@@ -1153,22 +1207,51 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#111827",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  pickerScroll: {
-    maxHeight: 520,
-  },
-  pickerSectionLabel: {
-    fontSize: 11,
-    fontWeight: "800",
+  pickerSubtitle: {
+    fontSize: 13,
+    fontWeight: "600",
     color: "#64748B",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 8,
-    marginTop: 4,
+    textAlign: "center",
+    marginBottom: 12,
   },
-  pickerSectionSpaced: {
-    marginTop: 18,
+  pickerRowIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickerRowTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  pickerKindPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  pickerKindPillLoan: {
+    backgroundColor: "#ECFEFF",
+    borderColor: "#A5F3FC",
+  },
+  pickerKindPillText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#3730A3",
+    letterSpacing: 0.4,
+  },
+  pickerKindPillTextLoan: {
+    color: "#0E7490",
   },
   pickerRow: {
     flexDirection: "row",
