@@ -1,137 +1,99 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
-import { addPayment, getCards, getPayments } from "@/lib/db";
-import Colors from "@/constants/Colors";
-import { useColorScheme } from "@/components/useColorScheme";
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { getPayments } from "@/lib/db";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
-import * as Haptics from "expo-haptics";
+
+function formatPaidAt(iso: string) {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
 
 export default function PaymentsScreen() {
-  const scheme = useColorScheme() ?? "dark";
-  const c = Colors[scheme];
-  const [cards, setCards] = useState(() => getCards());
   const [payments, setPayments] = useState(() => getPayments());
-  const [cardId, setCardId] = useState<number>(cards[0]?.id ?? 0);
-  const [amount, setAmount] = useState("50");
-  const glow = useSharedValue(0);
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: withSpring(glow.value ? 0.98 : 1) }],
-    opacity: withSpring(glow.value ? 0.9 : 1),
-  }));
 
   useFocusEffect(
     useCallback(() => {
-      const c = getCards();
-      setCards(c);
-      if (c.length && !c.find((x) => x.id === cardId)) setCardId(c[0].id);
       setPayments(getPayments());
-    }, [cardId])
+    }, [])
   );
 
-  const selectedCard = useMemo(() => cards.find((x) => x.id === cardId), [cards, cardId]);
+  const sorted = useMemo(
+    () => [...payments].sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime()),
+    [payments]
+  );
 
   return (
     <ScreenWrap>
       <GlassCard style={styles.headerBanner}>
-        <Text style={styles.headerTitle}>PAYMENTS</Text>
-        <Text style={styles.headerSubtitle}>Record, track, and reduce balances in real time</Text>
+        <Text style={styles.headerTitle}>PAYMENT HISTORY</Text>
+        <Text style={styles.headerSubtitle}>Payments applied from Credit Cards → Make Payment</Text>
       </GlassCard>
 
-      <Animated.View entering={FadeInDown.delay(80)}>
-      <GlassCard>
-        <Text style={[styles.label, { color: c.tabIconDefault }]}>Record payment</Text>
-        <Text style={[styles.small, { color: c.text }]}>
-          Card: {selectedCard?.name ?? "None selected"}
-        </Text>
-        <TextInput
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          style={[styles.input, { color: c.text, borderColor: c.border }]}
-          placeholder="$ amount"
-          placeholderTextColor={c.tabIconDefault}
-        />
-        <Animated.View style={glowStyle}>
-        <Pressable
-          onPressIn={() => (glow.value = 1)}
-          onPressOut={() => (glow.value = 0)}
-          style={[styles.btn, { backgroundColor: "#FFFFFF", borderColor: c.border }]}
-          onPress={() => {
-            const v = Number(amount);
-            if (!cardId || !Number.isFinite(v) || v <= 0) return;
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            addPayment(cardId, v, new Date().toISOString());
-            setCards(getCards());
-            setPayments(getPayments());
-          }}
-        >
-          <Text style={styles.btnText}>Apply Payment</Text>
-        </Pressable>
-        </Animated.View>
-
-        <Text style={[styles.small, { color: c.tabIconDefault, marginTop: 10 }]}>Quick card select</Text>
-        {cards.map((card) => (
-          <Pressable
-            key={card.id}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setCardId(card.id);
-            }}
-            style={[
-              styles.cardPick,
-              { borderColor: c.border, backgroundColor: card.id === cardId ? "#F1F5F9" : "#FFFFFF" },
-            ]}
-          >
-            <Text style={{ color: c.text, fontWeight: "700" }}>{card.name}</Text>
-          </Pressable>
-        ))}
-      </GlassCard>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(140)}>
-      <GlassCard style={{ marginTop: 10 }}>
-        <Text style={[styles.label, { color: c.tabIconDefault }]}>History</Text>
-        {payments.slice(0, 12).map((p) => (
-          <Text key={p.id} style={[styles.row, { color: c.text }]}>
-            {new Date(p.paid_at).toLocaleDateString()} • {p.card_name} • ${p.amount.toFixed(2)} • left ${p.balance_after.toFixed(2)}
-          </Text>
-        ))}
-      </GlassCard>
+      <Animated.View entering={FadeInDown.delay(70)}>
+        <GlassCard style={styles.listCard}>
+          {sorted.length === 0 ? (
+            <Text style={styles.empty}>No payments yet. Apply a payment from the Credit Cards tab.</Text>
+          ) : (
+            sorted.map((p, index) => (
+              <View key={p.id} style={[styles.row, index > 0 ? styles.rowBorder : undefined]}>
+                <View style={styles.rowTop}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {p.card_name}
+                  </Text>
+                  <Text style={styles.dateText}>{formatPaidAt(p.paid_at)}</Text>
+                </View>
+                <View style={styles.rowBottom}>
+                  <View style={styles.metric}>
+                    <Text style={styles.metricLabel}>Amount paid</Text>
+                    <Text style={styles.metricValue}>${p.amount.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.metric}>
+                    <Text style={styles.metricLabel}>Balance after</Text>
+                    <Text style={styles.metricValue}>${p.balance_after.toFixed(2)}</Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          )}
+        </GlassCard>
       </Animated.View>
     </ScreenWrap>
   );
 }
 
 const styles = StyleSheet.create({
-  headerBanner: { backgroundColor: "#3F4D63", borderColor: "#3F4D63", marginBottom: 2 },
-  headerTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "900", textAlign: "center", letterSpacing: 0.5 },
-  headerSubtitle: { color: "rgba(255,255,255,0.86)", marginTop: 6, textAlign: "center", fontWeight: "600" },
-  label: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },
-  small: { marginTop: 8, fontSize: 13, fontWeight: "600" },
-  input: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
+  headerBanner: { backgroundColor: "#3F4D63", borderColor: "#3F4D63", marginBottom: 4 },
+  headerTitle: { color: "#FFFFFF", fontSize: 26, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.88)",
+    marginTop: 8,
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingHorizontal: 8,
   },
-  btn: {
-    marginTop: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    paddingVertical: 11,
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+  listCard: { paddingVertical: 6, paddingHorizontal: 4 },
+  empty: {
+    textAlign: "center",
+    color: "#64748B",
+    fontWeight: "600",
+    fontSize: 15,
+    lineHeight: 22,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
   },
-  btnText: { color: "#111827", fontSize: 14, fontWeight: "800" },
-  cardPick: { marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
-  row: { marginTop: 8, fontSize: 13, lineHeight: 18 },
+  row: { paddingVertical: 14, paddingHorizontal: 12 },
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E5E7EB" },
+  rowTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  cardName: { flex: 1, fontSize: 17, fontWeight: "900", color: "#111827", letterSpacing: 0.2 },
+  dateText: { fontSize: 12, fontWeight: "700", color: "#64748B", textAlign: "right", maxWidth: "46%" },
+  rowBottom: { flexDirection: "row", marginTop: 12, gap: 16 },
+  metric: { flex: 1 },
+  metricLabel: { fontSize: 12, fontWeight: "700", color: "#64748B", letterSpacing: 0.2 },
+  metricValue: { marginTop: 4, fontSize: 16, fontWeight: "800", color: "#111827" },
 });
-

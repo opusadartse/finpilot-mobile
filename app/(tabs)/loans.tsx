@@ -18,7 +18,17 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
-import { addLoan, addLoanPayment, deleteLoan, getCards, getLoanPayments, getLoans, getRemainingMonths, setLoanPurchasesThisMonth, updateLoan } from "@/lib/db";
+import {
+  addLoan,
+  addLoanPayment,
+  applyLoanPurchaseThisMonth,
+  deleteLoan,
+  getCards,
+  getLoanPayments,
+  getLoans,
+  getRemainingMonths,
+  updateLoan,
+} from "@/lib/db";
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -43,7 +53,8 @@ export default function LoansScreen() {
   const [makePaymentNotes, setMakePaymentNotes] = useState("");
   const [paymentSuccessBanner, setPaymentSuccessBanner] = useState("");
   const [purchasesModalLoanId, setPurchasesModalLoanId] = useState<number | null>(null);
-  const [purchasesInput, setPurchasesInput] = useState("0");
+  const [purchasesModalNonce, setPurchasesModalNonce] = useState(0);
+  const [purchasesInput, setPurchasesInput] = useState("");
 
   const [name, setName] = useState("");
   const [amountBorrowed, setAmountBorrowed] = useState("4000");
@@ -548,9 +559,7 @@ export default function LoansScreen() {
                 <Text style={styles.loanMetaMuted}>
                   Monthly target ${needed.toFixed(2)} • {months} month(s) left
                 </Text>
-                <Text style={styles.purchasesLabel}>
-                  {purchases > 0 ? `Purchases This Month: $${purchases.toFixed(2)}` : "No purchases added this month"}
-                </Text>
+                <Text style={styles.purchasesLabel}>Purchases This Month: ${purchases.toFixed(2)}</Text>
                 <Text style={styles.monthLabel}>Current Month: {currentMonthLabel}</Text>
                 <Text style={styles.totalDueLabel}>Total Due This Month: ${totalDue.toFixed(2)}</Text>
                 <Text style={[styles.warning, { color: statusTone }]}>
@@ -606,8 +615,9 @@ export default function LoansScreen() {
                   </Pressable>
                   <Pressable
                     onPress={() => {
+                      setPurchasesModalNonce((n) => n + 1);
+                      setPurchasesInput("");
                       setPurchasesModalLoanId(loan.id);
-                      setPurchasesInput(String(loan.purchases_this_month || 0));
                     }}
                     style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
                     hitSlop={6}
@@ -874,38 +884,68 @@ export default function LoansScreen() {
           </View>
         </View>
       </Modal>
-      <Modal visible={!!purchasesModalLoanId} transparent animationType="fade" onRequestClose={() => setPurchasesModalLoanId(null)}>
-        <View style={styles.centerModalBackdrop}>
-          <View style={styles.centerModalCard}>
-            <Text style={styles.modalTitle}>Monthly Purchases</Text>
+      <Modal
+        visible={!!purchasesModalLoanId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setPurchasesInput("");
+          setPurchasesModalLoanId(null);
+        }}
+      >
+        <Pressable
+          style={styles.centerModalBackdrop}
+          onPress={() => {
+            Keyboard.dismiss();
+            setPurchasesInput("");
+            setPurchasesModalLoanId(null);
+          }}
+        >
+          <Pressable style={styles.centerModalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Purchases This Month</Text>
             <Text style={styles.modalLine}>Loan: {loans.find((l) => l.id === purchasesModalLoanId)?.name ?? "-"}</Text>
-            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Purchases this month ($)</Text>
+            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>New purchase amount ($)</Text>
             <TextInput
+              key={`${purchasesModalLoanId ?? 0}-${purchasesModalNonce}`}
               value={purchasesInput}
               onChangeText={(v) => setPurchasesInput(v.replace(/[^0-9.]/g, ""))}
               keyboardType="decimal-pad"
-              placeholder="Purchases made this month"
               placeholderTextColor="#9CA3AF"
               style={styles.input}
             />
             <View style={styles.modalBtnRow}>
-              <Pressable onPress={() => setPurchasesModalLoanId(null)} style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}>
+              <Pressable
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setPurchasesInput("");
+                  setPurchasesModalLoanId(null);
+                }}
+                style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}
+              >
                 <Text style={styles.modalOutlineBtnText}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
                   if (!purchasesModalLoanId) return;
-                  setLoanPurchasesThisMonth(purchasesModalLoanId, Number(purchasesInput) || 0);
+                  const amount = Number(purchasesInput);
+                  if (!Number.isFinite(amount) || amount <= 0) {
+                    Alert.alert("Amount required", "Enter a purchase amount greater than zero.");
+                    return;
+                  }
+                  Keyboard.dismiss();
+                  applyLoanPurchaseThisMonth(purchasesModalLoanId, amount);
+                  setPurchasesInput("");
                   setPurchasesModalLoanId(null);
                   reload();
                 }}
                 style={({ pressed }) => [styles.modalOutlineBtn, pressed ? styles.outlineBtnPressed : undefined]}
               >
-                <Text style={styles.modalOutlineBtnText}>Save Purchases</Text>
+                <Text style={styles.modalOutlineBtnText}>Save</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
       </View>
       </KeyboardAvoidingView>

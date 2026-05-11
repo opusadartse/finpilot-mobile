@@ -359,6 +359,8 @@ function applyScenarioHypothesis(
         min_payment: 25,
         due_date: new Date().toISOString(),
         opening_date: new Date().toISOString(),
+        purchases_this_month: 0,
+        purchases_month: "",
       });
       extraAdjustment -= 6;
       break;

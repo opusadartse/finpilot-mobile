@@ -1,4 +1,4 @@
-import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrap } from "@/components/ScreenWrap";
@@ -6,6 +6,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import { getRiskProfile, setRiskProfile, type RiskProfileSetting } from "@/lib/db";
+import { APP_DISPLAY_VERSION } from "@/constants/appVersion";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -47,6 +48,10 @@ export default function SettingsScreen() {
         <Text style={styles.linkBtnText}>How To Use This App</Text>
         <Ionicons name="chevron-forward" size={20} color="#6B7280" />
       </Pressable>
+
+      <View style={styles.linkBtn} accessibilityRole="text" accessibilityLabel={`App version ${APP_DISPLAY_VERSION}`}>
+        <Text style={styles.linkBtnText}>Version {APP_DISPLAY_VERSION}</Text>
+      </View>
 
       <GlassCard style={styles.riskCard}>
         <Text style={styles.cardTitle}>Risk Profile</Text>

@@ -1,17 +1,21 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
-import { addCard, addPayment, deleteCard, getCards, updateCard } from "@/lib/db";
+import { addCard, addPayment, applyCardPurchaseThisMonth, deleteCard, getCards, updateCard } from "@/lib/db";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 
 export default function CardsScreen() {
   const [cards, setCards] = useState(() => getCards());
-  const [cardView, setCardView] = useState<"new" | "current">("new");
+  const [cardView, setCardView] = useState<"new" | "current">("current");
   const [editCardId, setEditCardId] = useState<number | null>(null);
   const [paymentCardId, setPaymentCardId] = useState<number | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("0");
+  const [paymentModalNonce, setPaymentModalNonce] = useState(0);
+  const [purchasesCardId, setPurchasesCardId] = useState<number | null>(null);
+  const [purchasesModalNonce, setPurchasesModalNonce] = useState(0);
+  const [purchasesInput, setPurchasesInput] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentBanner, setPaymentBanner] = useState("");
   const [addSuccessBanner, setAddSuccessBanner] = useState("");
 
@@ -23,6 +27,7 @@ export default function CardsScreen() {
 
   const editingCard = useMemo(() => cards.find((c) => c.id === editCardId) ?? null, [cards, editCardId]);
   const paymentCard = useMemo(() => cards.find((c) => c.id === paymentCardId) ?? null, [cards, paymentCardId]);
+  const purchasesCard = useMemo(() => cards.find((c) => c.id === purchasesCardId) ?? null, [cards, purchasesCardId]);
 
   const reloadCards = useCallback(() => {
     setCards(getCards());
@@ -280,12 +285,16 @@ export default function CardsScreen() {
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${Math.max(0, Math.min(100, util * 100))}%` }]} />
             </View>
+            <Text style={styles.purchasesLine}>
+              Purchases This Month: ${(card.purchases_this_month ?? 0).toFixed(2)}
+            </Text>
             <View style={styles.cardActionPanel}>
               <View style={styles.cardActionRow}>
                 <Pressable
                   onPress={() => {
+                    setPaymentModalNonce((n) => n + 1);
+                    setPaymentAmount("");
                     setPaymentCardId(card.id);
-                    setPaymentAmount(Math.max(0, card.current_balance * 0.25).toFixed(2));
                   }}
                   style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
                 >
@@ -302,6 +311,19 @@ export default function CardsScreen() {
                   style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
                 >
                   <Text style={styles.cardActionText}>Delete</Text>
+                </Pressable>
+              </View>
+              <View style={styles.cardActionRowSecond}>
+                <Pressable
+                  onPress={() => {
+                    setPurchasesModalNonce((n) => n + 1);
+                    setPurchasesInput("");
+                    setPurchasesCardId(card.id);
+                  }}
+                  style={({ pressed }) => [styles.cardActionBtn, pressed ? styles.cardActionBtnPressed : undefined]}
+                  hitSlop={6}
+                >
+                  <Text style={styles.cardActionText}>Purchases This Month</Text>
                 </Pressable>
               </View>
             </View>
@@ -363,29 +385,130 @@ export default function CardsScreen() {
         </View>
       </Modal>
 
-      <Modal visible={!!paymentCard} transparent animationType="fade" onRequestClose={() => setPaymentCardId(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+      <Modal
+        visible={!!purchasesCard}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setPurchasesInput("");
+          setPurchasesCardId(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => {
+            Keyboard.dismiss();
+            setPurchasesInput("");
+            setPurchasesCardId(null);
+          }}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Purchases This Month</Text>
+            <Text style={styles.modalLine}>Card: {purchasesCard?.name ?? "-"}</Text>
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>New purchase amount ($)</Text>
+              <TextInput
+                key={`${purchasesCardId ?? 0}-${purchasesModalNonce}`}
+                value={purchasesInput}
+                onChangeText={(v) => setPurchasesInput(cleanMoney(v))}
+                keyboardType="decimal-pad"
+                placeholderTextColor="#9CA3AF"
+                style={styles.input}
+              />
+            </View>
+            <View style={styles.modalActionRow}>
+              <Pressable
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setPurchasesInput("");
+                  setPurchasesCardId(null);
+                }}
+                style={styles.modalCancel}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (!purchasesCardId) return;
+                  const amount = Number(purchasesInput);
+                  if (!Number.isFinite(amount) || amount <= 0) {
+                    Alert.alert("Amount required", "Enter a purchase amount greater than zero.");
+                    return;
+                  }
+                  Keyboard.dismiss();
+                  applyCardPurchaseThisMonth(purchasesCardId, amount);
+                  setPurchasesInput("");
+                  setPurchasesCardId(null);
+                  reloadCards();
+                }}
+                style={styles.modalSave}
+              >
+                <Text style={styles.actionText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={!!paymentCard}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setPaymentAmount("");
+          setPaymentCardId(null);
+        }}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => {
+            Keyboard.dismiss();
+            setPaymentAmount("");
+            setPaymentCardId(null);
+          }}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Make Card Payment</Text>
             <Text style={styles.modalLine}>Card: {paymentCard?.name ?? "-"}</Text>
             <Text style={styles.modalLine}>Remaining Balance: ${paymentCard?.current_balance.toFixed(2) ?? "0.00"}</Text>
             <Text style={styles.modalLine}>
-              Recommended Payment: ${paymentCard ? Math.max(paymentCard.min_payment, paymentCard.current_balance * 0.3).toFixed(2) : "0.00"}
+              Suggested payment: ${paymentCard ? Math.max(paymentCard.min_payment, paymentCard.current_balance * 0.3).toFixed(2) : "0.00"}
             </Text>
             <View style={styles.fieldBlock}>
-              <Text style={styles.fieldLabel}>Payment Amount</Text>
-              <TextInput value={paymentAmount} onChangeText={(v) => setPaymentAmount(cleanMoney(v))} keyboardType="decimal-pad" placeholderTextColor="#9CA3AF" style={styles.input} />
+              <Text style={styles.fieldLabel}>Payment amount ($)</Text>
+              <TextInput
+                key={`pay-${paymentCardId ?? 0}-${paymentModalNonce}`}
+                value={paymentAmount}
+                onChangeText={(v) => setPaymentAmount(cleanMoney(v))}
+                keyboardType="decimal-pad"
+                placeholderTextColor="#9CA3AF"
+                style={styles.input}
+              />
             </View>
             <View style={styles.modalActionRow}>
-              <Pressable onPress={() => setPaymentCardId(null)} style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></Pressable>
               <Pressable
                 onPress={() => {
+                  Keyboard.dismiss();
+                  setPaymentAmount("");
+                  setPaymentCardId(null);
+                }}
+                style={styles.modalCancel}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (!paymentCardId) return;
                   const amount = Number(paymentAmount);
-                  if (!paymentCardId || !Number.isFinite(amount) || amount <= 0) {
-                    Alert.alert("Invalid Payment", "Enter a valid payment amount.");
+                  if (!Number.isFinite(amount) || amount <= 0) {
+                    Alert.alert("Invalid Payment", "Enter a payment amount greater than zero.");
                     return;
                   }
+                  Keyboard.dismiss();
                   addPayment(paymentCardId, amount, new Date().toISOString());
+                  setPaymentAmount("");
                   setPaymentCardId(null);
                   reloadCards();
                   setPaymentBanner("Payment Applied Successfully");
@@ -396,8 +519,8 @@ export default function CardsScreen() {
                 <Text style={styles.actionText}>Apply Payment</Text>
               </Pressable>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </ScreenWrap>
   );
@@ -550,6 +673,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   cardActionRow: { flexDirection: "row", gap: 8, alignItems: "stretch" },
+  cardActionRowSecond: { flexDirection: "row", gap: 8, marginTop: 8, alignItems: "stretch" },
+  purchasesLine: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#64748B",
+    textAlign: "center",
+    letterSpacing: 0.15,
+  },
   /** Same language as inactive segment pills: white + outline; black border per banking spec */
   cardActionBtn: {
     flex: 1,
