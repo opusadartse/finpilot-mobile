@@ -1,4 +1,4 @@
-import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrap } from "@/components/ScreenWrap";
@@ -44,10 +44,21 @@ export default function SettingsScreen() {
     <ScreenWrap>
       <Text style={styles.title}>About This App</Text>
 
-      <Pressable style={styles.linkBtn} onPress={() => router.push("/how-to-use")}>
-        <Text style={styles.linkBtnText}>How To Use This App</Text>
-        <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-      </Pressable>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={styles.howToUseCard}
+        onPress={() => router.push("/how-to-use")}
+        accessibilityRole="button"
+        accessibilityLabel="How to use this app"
+      >
+        <View style={styles.howToUseTextBlock}>
+          <Text style={styles.howToUseTitle}>How To Use This App</Text>
+
+          <Text style={styles.howToUseSubtitle}>Learn every feature step by step</Text>
+        </View>
+
+        <Ionicons name="chevron-forward" size={28} color="#44556F" />
+      </TouchableOpacity>
 
       <View style={styles.linkBtn} accessibilityRole="text" accessibilityLabel={`App version ${APP_DISPLAY_VERSION}`}>
         <Text style={styles.linkBtnText}>Version {APP_DISPLAY_VERSION}</Text>
@@ -102,6 +113,33 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   title: { fontSize: 30, fontWeight: "900", color: "#0F172A", textAlign: "center", marginTop: 4, marginBottom: 12 },
+  howToUseCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 22,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  howToUseTextBlock: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  howToUseTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  howToUseSubtitle: {
+    marginTop: 6,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
   linkBtn: {
     flexDirection: "row",
     alignItems: "center",
