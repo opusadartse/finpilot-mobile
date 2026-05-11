@@ -3,8 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import "react-native-reanimated";
-import { initDb } from "@/lib/db";
-import { isLegalDisclaimerAccepted } from "@/lib/legalAcceptance";
+import { getLegalDisclaimerAccepted, initDb } from "@/lib/db";
 import { FirstLaunchLegalDisclaimer } from "@/components/FirstLaunchLegalDisclaimer";
 
 import { useColorScheme } from "@/components/useColorScheme";
@@ -27,16 +26,7 @@ export default function RootLayout() {
   const [gate, setGate] = useState<Gate>("loading");
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const accepted = await isLegalDisclaimerAccepted();
-      if (!cancelled) {
-        setGate(accepted ? "app" : "disclaimer");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    setGate(getLegalDisclaimerAccepted() ? "app" : "disclaimer");
   }, []);
 
   const handleDisclaimerAccepted = useCallback(() => {
