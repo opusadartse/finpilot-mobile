@@ -17,16 +17,24 @@ import {
   getLoans,
   getLoanPayments,
   getPayments,
+  getRiskProfile,
   getUserBaseScore,
   setUserBaseScore,
 } from "@/lib/db";
-import { projectScenarioScore, type ScoreScenario } from "@/lib/score";
+import {
+  calculateRisk,
+  getRiskBand,
+  getRiskColor,
+  projectScenarioScore,
+  type ScoreScenario,
+} from "@/lib/score";
 import Colors from "@/constants/Colors";
 import { useColorScheme } from "@/components/useColorScheme";
 import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 const scenarios: { id: ScoreScenario; label: string }[] = [
   { id: "open_new_card", label: "Open new card" },
@@ -35,6 +43,15 @@ const scenarios: { id: ScoreScenario; label: string }[] = [
   { id: "util_down", label: "Utilization down" },
   { id: "missed_payment", label: "Missed payment" },
 ];
+
+const scenarioIcons: Record<ScoreScenario, keyof typeof Ionicons.glyphMap> = {
+  base: "analytics-outline",
+  open_new_card: "card-outline",
+  pay_down: "arrow-down-circle-outline",
+  util_up: "trending-up-outline",
+  util_down: "trending-down-outline",
+  missed_payment: "alert-circle-outline",
+};
 
 export default function SimulatorScreen() {
   const router = useRouter();
@@ -46,6 +63,7 @@ export default function SimulatorScreen() {
   const [cardPayments, setCardPayments] = useState(() => getPayments());
   const [loanPayments, setLoanPayments] = useState(() => getLoanPayments());
   const [baseScore, setBaseScore] = useState<number | null>(() => getUserBaseScore());
+  const [riskProfile, setRiskProfile] = useState(() => getRiskProfile());
 
   const [scenario, setScenario] = useState<ScoreScenario>("open_new_card");
   const [scoreModalOpen, setScoreModalOpen] = useState(false);
@@ -65,6 +83,7 @@ export default function SimulatorScreen() {
       setCardPayments(getPayments());
       setLoanPayments(getLoanPayments());
       setBaseScore(getUserBaseScore());
+      setRiskProfile(getRiskProfile());
     }, [])
   );
 
@@ -75,6 +94,33 @@ export default function SimulatorScreen() {
 
   const adjustmentShift =
     projection.projected.totalAdjustment - projection.baseline.totalAdjustment;
+  const riskModel = useMemo(() => {
+    if (!cards.length) {
+      const risk = calculateRisk(projection.baseline.utilization * 100, 0, 0, 0, riskProfile);
+      return { risk, band: getRiskBand(risk), color: getRiskColor(risk) };
+    }
+    const totals = cards.reduce(
+      (acc, card) => {
+        const ageYears = Math.max(0, (Date.now() - new Date(card.opening_date).getTime()) / (1000 * 60 * 60 * 24 * 365));
+        return {
+          limit: acc.limit + card.credit_limit,
+          aprWeighted: acc.aprWeighted + card.apr * card.credit_limit,
+          ageWeighted: acc.ageWeighted + ageYears * card.credit_limit,
+        };
+      },
+      { limit: 0, aprWeighted: 0, ageWeighted: 0 }
+    );
+    const avgApr = totals.limit > 0 ? totals.aprWeighted / totals.limit : 0;
+    const avgAge = totals.limit > 0 ? totals.ageWeighted / totals.limit : 0;
+    const risk = calculateRisk(
+      projection.baseline.utilization * 100,
+      avgAge,
+      totals.limit,
+      avgApr,
+      riskProfile
+    );
+    return { risk, band: getRiskBand(risk), color: getRiskColor(risk) };
+  }, [cards, projection.baseline.utilization, riskProfile]);
 
   const openScoreModal = () => {
     setScoreDraft(baseScore !== null ? String(baseScore) : "");
@@ -126,10 +172,10 @@ export default function SimulatorScreen() {
 
   return (
     <ScreenWrap>
-      <Text style={[styles.title, { color: c.text }]}>Credit Simulator</Text>
-      <Text style={[styles.subtitle, { color: c.tabIconDefault }]}>
-        Model estimated score movement before making decisions
-      </Text>
+      <View style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>CREDIT SIMULATOR</Text>
+        <Text style={styles.headerSubtitle}>Model estimated score movement before making decisions</Text>
+      </View>
 
       <Animated.View entering={FadeInDown.delay(40)}>
         <GlassCard>
@@ -140,17 +186,24 @@ export default function SimulatorScreen() {
             }}
             style={[styles.linkRow, { borderColor: c.border }]}
           >
-            <Text style={[styles.linkTitle, { color: c.text }]}>My Payments</Text>
-            <Text style={[styles.linkChevron, { color: c.tint }]}>›</Text>
+            <View style={styles.rowLeft}>
+              <Ionicons name="wallet-outline" size={18} color="#374151" />
+              <Text style={[styles.linkTitle, { color: c.text }]}>My Payments</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
           </Pressable>
 
           <Pressable
             onPress={openScoreModal}
-            style={[styles.primaryOutlineBtn, { borderColor: c.tint }]}
+            style={[styles.primaryOutlineBtn, { borderColor: "#DADADA" }]}
           >
-            <Text style={[styles.primaryOutlineText, { color: c.tint }]}>
-              What&apos;s Your Current Credit Score?
-            </Text>
+            <View style={styles.rowLeft}>
+              <Ionicons name="help-circle-outline" size={18} color="#374151" />
+              <Text style={[styles.primaryOutlineText, { color: "#111827" }]}>
+                What&apos;s Your Current Credit Score?
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
           </Pressable>
 
           <Text style={[styles.baseHint, { color: c.tabIconDefault }]}>
@@ -177,65 +230,7 @@ export default function SimulatorScreen() {
         </GlassCard>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(70)}>
-        <GlassCard style={{ marginTop: 2 }}>
-          <Text style={[styles.label, { color: c.tabIconDefault }]}>Scenario</Text>
-          {scenarios.map((s) => (
-            <Animated.View key={s.id} style={scenario === s.id ? glowStyle : undefined}>
-              <Pressable
-                onPressIn={() => (glow.value = 1)}
-                onPressOut={() => (glow.value = 0)}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setScenario(s.id);
-                }}
-                style={[
-                  styles.opt,
-                  {
-                    borderColor: c.border,
-                    backgroundColor:
-                      scenario === s.id ? "rgba(37,99,235,0.14)" : "transparent",
-                  },
-                ]}
-              >
-                <Text style={{ color: c.text, fontWeight: "700" }}>{s.label}</Text>
-              </Pressable>
-            </Animated.View>
-          ))}
-        </GlassCard>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(110)}>
-        <GlassCard style={{ marginTop: 10 }}>
-          <Text style={[styles.label, { color: c.tabIconDefault }]}>Score Factors</Text>
-          <Text style={[styles.factorIntro, { color: c.tabIconDefault }]}>
-            Dynamic adjustments applied to your base score from real account behavior.
-          </Text>
-          {factorRows.map((row, i) => (
-            <Animated.View
-              key={row.title}
-              entering={FadeInDown.delay(80 + i * 45)}
-              style={[styles.factorBlock, { borderColor: c.border }]}
-            >
-              <View style={styles.factorHeader}>
-                <Text style={[styles.factorTitle, { color: c.text }]}>{row.title}</Text>
-                <Text
-                  style={[
-                    styles.factorImpact,
-                    { color: row.impact >= 0 ? c.accentPositive : "#DC2626" },
-                  ]}
-                >
-                  {row.impact >= 0 ? "+" : ""}
-                  {row.impact}
-                </Text>
-              </View>
-              <Text style={[styles.factorSummary, { color: c.tabIconDefault }]}>{row.summary}</Text>
-            </Animated.View>
-          ))}
-        </GlassCard>
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(150)}>
+      <Animated.View entering={FadeInDown.delay(55)}>
         <GlassCard style={{ marginTop: 10 }}>
           <Text style={[styles.label, { color: c.tabIconDefault }]}>Estimated result</Text>
           {baseScore !== null ? (
@@ -286,6 +281,76 @@ export default function SimulatorScreen() {
                 : "Short-term drop expected"}
           </Text>
           <Text style={[styles.reason, { color: c.tabIconDefault }]}>{projection.reason}</Text>
+          <View style={[styles.riskPill, { borderColor: riskModel.color, backgroundColor: `${riskModel.color}1A` }]}>
+            <Text style={[styles.riskPillText, { color: riskModel.color }]}>
+              Risk Score {riskModel.risk} · {riskModel.band.replace("_", " ").toUpperCase()} · {riskProfile.toUpperCase()}
+            </Text>
+          </View>
+        </GlassCard>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(70)}>
+        <GlassCard style={{ marginTop: 2 }}>
+          <Text style={[styles.label, { color: c.tabIconDefault }]}>Scenario</Text>
+          <View style={styles.outlineMenuItem}>
+            <View style={styles.rowLeft}>
+              <Ionicons name="speedometer-outline" size={18} color="#374151" />
+              <Text style={styles.menuText}>Credit Simulator</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+          </View>
+          {scenarios.map((s) => (
+            <Animated.View key={s.id} style={scenario === s.id ? glowStyle : undefined}>
+              <Pressable
+                onPressIn={() => (glow.value = 1)}
+                onPressOut={() => (glow.value = 0)}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setScenario(s.id);
+                }}
+                style={[
+                  styles.outlineMenuItem,
+                  scenario === s.id ? styles.menuActive : undefined,
+                ]}
+              >
+                <View style={styles.rowLeft}>
+                  <Ionicons name={scenarioIcons[s.id]} size={18} color="#374151" />
+                  <Text style={styles.menuText}>{s.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+              </Pressable>
+            </Animated.View>
+          ))}
+        </GlassCard>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(110)}>
+        <GlassCard style={{ marginTop: 10 }}>
+          <Text style={[styles.label, { color: c.tabIconDefault }]}>Score Factors</Text>
+          <Text style={[styles.factorIntro, { color: c.tabIconDefault }]}>
+            Dynamic adjustments applied to your base score from real account behavior.
+          </Text>
+          {factorRows.map((row, i) => (
+            <Animated.View
+              key={row.title}
+              entering={FadeInDown.delay(80 + i * 45)}
+              style={[styles.factorBlock, { borderColor: c.border }]}
+            >
+              <View style={styles.factorHeader}>
+                <Text style={[styles.factorTitle, { color: c.text }]}>{row.title}</Text>
+                <Text
+                  style={[
+                    styles.factorImpact,
+                    { color: row.impact >= 0 ? c.accentPositive : "#DC2626" },
+                  ]}
+                >
+                  {row.impact >= 0 ? "+" : ""}
+                  {row.impact}
+                </Text>
+              </View>
+              <Text style={[styles.factorSummary, { color: c.tabIconDefault }]}>{row.summary}</Text>
+            </Animated.View>
+          ))}
         </GlassCard>
       </Animated.View>
 
@@ -320,7 +385,7 @@ export default function SimulatorScreen() {
                 </Pressable>
                 <Pressable onPress={saveBaseScore} style={styles.modalSaveWrap}>
                   <LinearGradient
-                    colors={["#0F172A", "#2563EB"]}
+                    colors={["#3F4D63", "#334155"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.modalSave}
@@ -338,31 +403,70 @@ export default function SimulatorScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: "800", marginTop: 10, marginLeft: 6 },
-  subtitle: { fontSize: 13, marginTop: 2, marginBottom: 2, marginLeft: 6, fontWeight: "600" },
+  headerBanner: {
+    borderRadius: 20,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    backgroundColor: "#3F4D63",
+    marginTop: 4,
+  },
+  headerTitle: { fontSize: 28, fontWeight: "900", color: "#FFFFFF", textAlign: "center", letterSpacing: 0.5 },
+  headerSubtitle: { fontSize: 14, marginTop: 8, color: "rgba(255,255,255,0.86)", textAlign: "center", fontWeight: "600" },
   label: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },
   linkRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 13,
-    marginBottom: 12,
-  },
-  linkTitle: { fontSize: 16, fontWeight: "800" },
-  linkChevron: { fontSize: 22, fontWeight: "700" },
-  primaryOutlineBtn: {
-    borderWidth: 2,
-    borderRadius: 14,
     paddingVertical: 14,
+    marginBottom: 12,
+    borderColor: "#DADADA",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  rowLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  linkTitle: { fontSize: 16, fontWeight: "800" },
+  primaryOutlineBtn: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     alignItems: "center",
+    justifyContent: "space-between",
+    flexDirection: "row",
     marginBottom: 10,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DADADA",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   primaryOutlineText: { fontSize: 15, fontWeight: "800" },
   baseHint: { fontSize: 13, lineHeight: 19, fontWeight: "600" },
-  opt: { marginTop: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  outlineMenuItem: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderColor: "#DADADA",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    shadowColor: "#111827",
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  menuText: { color: "#111827", fontWeight: "700", fontSize: 15 },
+  menuActive: { backgroundColor: "#F8FAFC", borderColor: "#CBD5E1" },
   factorIntro: { fontSize: 13, marginBottom: 10, lineHeight: 18, fontWeight: "600" },
   factorBlock: {
     marginTop: 10,
@@ -370,7 +474,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    backgroundColor: "rgba(255,255,255,0.65)",
+    backgroundColor: "#FFFFFF",
   },
   factorHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   factorTitle: { fontSize: 14, fontWeight: "800", flex: 1, paddingRight: 10 },
@@ -382,6 +486,15 @@ const styles = StyleSheet.create({
   deltaHint: { marginTop: 6, fontSize: 13, fontWeight: "600" },
   pill: { marginTop: 2, fontSize: 12, fontWeight: "700" },
   reason: { marginTop: 6, fontSize: 13, lineHeight: 18 },
+  riskPill: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+  },
+  riskPillText: { fontSize: 12, fontWeight: "800" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15,23,42,0.55)",

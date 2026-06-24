@@ -26,12 +26,12 @@ export function GlassCard({ children, style }: PropsWithChildren<{ style?: Style
 const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
-    borderRadius: 18,
-    padding: 16,
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    borderRadius: 20,
+    padding: 18,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
 });
 

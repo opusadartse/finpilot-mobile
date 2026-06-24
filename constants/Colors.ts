@@ -1,10 +1,10 @@
-const royalBlue = "#2563EB";
+const royalBlue = "#1F3A5F";
 const emerald = "#16A34A";
-const surface = "#F7F8FA";
+const surface = "#F3F5F8";
 const cardWhite = "#FFFFFF";
-const textPrimary = "#111827";
-const textSecondary = "#4B5563";
-const softBorder = "#E5E7EB";
+const textPrimary = "#111111";
+const textSecondary = "#5F6772";
+const softBorder = "#DDE3EA";
 
 export default {
   light: {

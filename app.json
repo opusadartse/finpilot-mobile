@@ -8,15 +8,9 @@
     "scheme": "finpilotmobile",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "splash": {
-      "resizeMode": "cover",
-      "backgroundColor": "#031126"
-    },
     "ios": {
       "supportsTablet": true,
-      "splash": {
-        "backgroundColor": "#031126"
-      }
+      "bundleIdentifier": "com.anonymous.finpilot-mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -31,11 +25,7 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "plugins": [
-      "expo-router",
-      "expo-sqlite",
-      "@react-native-community/datetimepicker"
-    ],
+    "plugins": ["expo-router", "expo-sqlite", "@react-native-community/datetimepicker"],
     "experiments": {
       "typedRoutes": true
     }

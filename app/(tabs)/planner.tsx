@@ -18,20 +18,23 @@ export default function PlannerScreen() {
 
   return (
     <ScreenWrap>
-      <Text style={[styles.title, { color: c.text }]}>Debt Payoff Planner</Text>
+      <GlassCard style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>PAYOFF PLANNER</Text>
+        <Text style={styles.headerSubtitle}>Compare payoff strategies with clean monthly targets</Text>
+      </GlassCard>
       <GlassCard>
         <Text style={[styles.k, { color: c.tabIconDefault }]}>Monthly Budget</Text>
         <Text style={[styles.v, { color: c.text }]}>${budget.toFixed(0)}</Text>
       </GlassCard>
       <GlassCard>
-        <Text style={[styles.plan, { color: c.tint }]}>Snowball</Text>
+        <Text style={[styles.plan, { color: "#111827" }]}>Snowball</Text>
         <Text style={[styles.copy, { color: c.tabIconDefault }]}>
           Focus smallest balance first for momentum.
         </Text>
         <Text style={[styles.months, { color: c.text }]}>{estMonthsSnowball} months</Text>
       </GlassCard>
       <GlassCard>
-        <Text style={[styles.plan, { color: c.accentPositive }]}>Avalanche</Text>
+        <Text style={[styles.plan, { color: "#111827" }]}>Avalanche</Text>
         <Text style={[styles.copy, { color: c.tabIconDefault }]}>
           Focus highest APR first to reduce total interest.
         </Text>
@@ -42,7 +45,9 @@ export default function PlannerScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: "800" },
+  headerBanner: { backgroundColor: "#3F4D63", borderColor: "#3F4D63" },
+  headerTitle: { fontSize: 28, fontWeight: "900", color: "#FFFFFF", textAlign: "center", letterSpacing: 0.5 },
+  headerSubtitle: { marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.86)", textAlign: "center", fontWeight: "600" },
   k: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
   v: { marginTop: 6, fontSize: 30, fontWeight: "800" },
   plan: { fontSize: 18, fontWeight: "800" },

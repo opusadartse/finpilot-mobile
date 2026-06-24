@@ -50,7 +50,10 @@ export default function AnalyticsScreen() {
 
   return (
     <ScreenWrap>
-      <Text style={[styles.title, { color: c.text }]}>Analytics</Text>
+      <GlassCard style={styles.headerBanner}>
+        <Text style={styles.headerTitle}>PROMOTIONS</Text>
+        <Text style={styles.headerSubtitle}>Track promotion performance with a clean analytics view</Text>
+      </GlassCard>
 
       <Animated.View entering={FadeInDown.delay(60)}>
         <GlassCard style={styles.scoreOverview}>
@@ -109,7 +112,7 @@ export default function AnalyticsScreen() {
                   width: 16,
                   borderRadius: 8,
                   height: Math.max(8, d.y / 8),
-                  backgroundColor: c.tint,
+                  backgroundColor: "#64748B",
                 }}
               />
             </View>
@@ -129,17 +132,19 @@ export default function AnalyticsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: "800" },
+  headerBanner: { backgroundColor: "#3F4D63", borderColor: "#3F4D63", marginBottom: 2 },
+  headerTitle: { fontSize: 28, fontWeight: "900", textAlign: "center", letterSpacing: 0.5, color: "#FFFFFF" },
+  headerSubtitle: { marginTop: 6, fontSize: 13, textAlign: "center", fontWeight: "600", color: "rgba(255,255,255,0.86)" },
   k: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginBottom: 8 },
-  row: { fontSize: 14, marginBottom: 8 },
-  barWrap: { height: 190, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+  row: { fontSize: 14, marginBottom: 8, textAlign: "center" },
+  barWrap: { height: 190, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingHorizontal: 8 },
   barItem: { flex: 1, alignItems: "center" },
-  scoreOverview: { paddingVertical: 18 },
-  scoreBigRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
+  scoreOverview: { paddingVertical: 20 },
+  scoreBigRow: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14, justifyContent: "center" },
   scoreBig: { fontSize: 44, fontWeight: "900", minWidth: 108 },
-  scoreMeta: { fontSize: 13, fontWeight: "600", lineHeight: 19 },
-  scoreHint: { marginTop: 4, fontSize: 12, fontWeight: "600" },
-  subHead: { fontSize: 15, fontWeight: "800", marginBottom: 8, marginTop: 4 },
+  scoreMeta: { fontSize: 13, fontWeight: "600", lineHeight: 19, textAlign: "center" },
+  scoreHint: { marginTop: 4, fontSize: 12, fontWeight: "600", textAlign: "center" },
+  subHead: { fontSize: 15, fontWeight: "800", marginBottom: 8, marginTop: 4, textAlign: "center" },
   factorRow: {
     flexDirection: "row",
     justifyContent: "space-between",

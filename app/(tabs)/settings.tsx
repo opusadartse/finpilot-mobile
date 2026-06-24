@@ -1,8 +1,22 @@
-import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text } from "react-native";
+import { Alert, BackHandler, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenWrap } from "@/components/ScreenWrap";
 import { GlassCard } from "@/components/GlassCard";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
+import { getRiskProfile, setRiskProfile, type RiskProfileSetting } from "@/lib/db";
+import { APP_DISPLAY_VERSION } from "@/constants/appVersion";
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const [riskProfile, setRiskProfileState] = useState<RiskProfileSetting>(() => getRiskProfile());
+  useFocusEffect(
+    useCallback(() => {
+      setRiskProfileState(getRiskProfile());
+    }, [])
+  );
+
   const exitApp = () => {
     Alert.alert("Exit FinPilot", "Created Bye Sam Faz 2026", [
       { text: "Cancel", style: "cancel" },
@@ -20,9 +34,45 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const profileOptions: Array<{ id: RiskProfileSetting; label: string }> = [
+    { id: "conservative", label: "Conservative" },
+    { id: "balanced", label: "Balanced" },
+    { id: "aggressive", label: "Aggressive" },
+  ];
+
   return (
     <ScreenWrap>
       <Text style={styles.title}>About This App</Text>
+
+      <Pressable style={styles.linkBtn} onPress={() => router.push("/how-to-use")}>
+        <Text style={styles.linkBtnText}>How To Use This App</Text>
+        <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+      </Pressable>
+
+      <View style={styles.linkBtn} accessibilityRole="text" accessibilityLabel={`App version ${APP_DISPLAY_VERSION}`}>
+        <Text style={styles.linkBtnText}>Version {APP_DISPLAY_VERSION}</Text>
+      </View>
+
+      <GlassCard style={styles.riskCard}>
+        <Text style={styles.cardTitle}>Risk Profile</Text>
+        <Text style={styles.copy}>
+          Choose how strict FinPilot should be when calculating risk across utilization, APR, credit limit, and account age.
+        </Text>
+        {profileOptions.map((option) => (
+          <Pressable
+            key={option.id}
+            onPress={() => {
+              setRiskProfile(option.id);
+              setRiskProfileState(option.id);
+            }}
+            style={[styles.profileBtn, riskProfile === option.id ? styles.profileBtnActive : undefined]}
+          >
+            <Text style={[styles.profileText, riskProfile === option.id ? styles.profileTextActive : undefined]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </GlassCard>
 
       <GlassCard style={styles.infoCard}>
         <Text style={styles.cardTitle}>Why FinPilot Exists</Text>
@@ -51,7 +101,35 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 30, fontWeight: "900", color: "#0F172A", textAlign: "center", marginTop: 4, marginBottom: 4 },
+  title: { fontSize: 30, fontWeight: "900", color: "#0F172A", textAlign: "center", marginTop: 4, marginBottom: 12 },
+  linkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#111827",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  linkBtnText: { fontSize: 16, fontWeight: "800", color: "#111827" },
+  riskCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    shadowColor: "#2563EB",
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 7 },
+  },
   infoCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 28,
@@ -65,6 +143,21 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 24, fontWeight: "900", color: "#0F172A", marginBottom: 10, letterSpacing: -0.2 },
   copy: { fontSize: 17, lineHeight: 31, color: "#334155", fontWeight: "600", marginBottom: 12 },
+  profileBtn: {
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    backgroundColor: "#FFFFFF",
+  },
+  profileBtnActive: {
+    borderColor: "#2563EB",
+    backgroundColor: "#DBEAFE",
+  },
+  profileText: { fontSize: 14, fontWeight: "700", color: "#334155" },
+  profileTextActive: { color: "#1D4ED8" },
   list: { fontSize: 15, color: "#334155", fontWeight: "600", marginBottom: 8 },
   devCard: {
     backgroundColor: "#0F172A",
